@@ -1,0 +1,1 @@
+This is a repor to store our explorations into different VectorDBs. To start, we will look at FAISS and ElasticSearch.
