@@ -16,7 +16,8 @@ try:
 except:
     document_store = FAISSDocumentStore(
         similarity="cosine",
-        embedding_dim=768
+        embedding_dim=768,
+        duplicate_documents = 'overwrite'
     )
 
 print(document_store.metric_type)              # should output "cosine"
@@ -36,12 +37,15 @@ if not loaded:
 
     # Create embeddings for our questions from the FAQs
     questions = list(df["question"].values)
+    print("questions:", len(questions))
     df["embedding"] = retriever.embed_queries(queries=questions).tolist()
     df = df.rename(columns={"question": "content"})
 
     # Convert Dataframe to list of dicts and index them in our DocumentStore
     docs_to_index = df.to_dict(orient="records")
+    print("dictionaries:", len(docs_to_index))
     document_store.write_documents(docs_to_index)
+    document_store.update_embeddings(retriever)
 
     document_store.save(index_path="my_faiss_index.faiss")
 
