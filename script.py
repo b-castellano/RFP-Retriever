@@ -22,21 +22,26 @@ data = pb.read_csv('qna.csv')
 
 # Add documents to DB
 
+batchSize = 2000
+
 dicts = []
 
 for row in data.index:
     
     # create haystack document object with text content and doc metadata
-       
+    if row % batchSize == 0:
+        document_store.write_documents(dicts)
+        dicts.clear()
+ 
     dicts.append({
-        'id': data["Question ID"][row],
-        'content': data["Answer"][row],
-        'meta': {
-            "SME": data["SME"][row],
-            "Question": data["Question"][row],
-            "Alternate": data["Alternate Questions"][row]
-        }
-    })
+    'id': data["Question ID"][row],
+    'content': data["Answer"][row],
+    'meta': {
+        "SME": data["SME"][row],
+        "Question": data["Question"][row],
+        "Alternate": data["Alternate Questions"][row]
+    }
+})
 
 document_store.write_documents(dicts)
 
