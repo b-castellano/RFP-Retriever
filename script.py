@@ -24,7 +24,37 @@ if os.path.exists("/data/index.faiss"):
 else:
     document_store = FAISSDocumentStore(faiss_index_factory_str=configs["faiss_index"])
 
+<<<<<<< HEAD
 # Define Retriever
+=======
+
+# Get QA data
+data = pb.read_csv('qna.csv')
+
+
+# Add documents to DB
+
+dicts = []
+
+for row in data.index:
+    
+    # create haystack document object with text content and doc metadata
+       
+    dicts.append({
+        'id': data["Question ID"][row],
+        'content': data["Answer"][row],
+        'meta': {
+            "SME": data["SME"][row],
+            "Question": data["Question"][row],
+            "Alternate": data["Alternate Questions"][row]
+        }
+    })
+
+document_store.write_documents(dicts)
+
+
+# Embed documents
+>>>>>>> faiss-dev
 
 retriever = EmbeddingRetriever(
     document_store=document_store,
