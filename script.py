@@ -22,25 +22,23 @@ data = pb.read_csv('qna.csv')
 
 # Add documents to DB
 
-docs = []
+dicts = []
 
 for row in data.index:
     
     # create haystack document object with text content and doc metadata
-    doc = Document(
-        id=data["Question ID"][row],
-        content=data["Answer"][row],
-        meta={
-            "SME":data["SME"][row],
+       
+    dicts.append({
+        'id': data["Question ID"][row],
+        'content': data["Answer"][row],
+        'meta': {
+            "SME": data["SME"][row],
             "Question": data["Question"][row],
             "Alternate": data["Alternate Questions"][row]
         }
-    )
+    })
 
-    docs.append(doc)
-
-
-document_store.write_documents(docs)
+document_store.write_documents(dicts)
 
 
 # Embed documents
