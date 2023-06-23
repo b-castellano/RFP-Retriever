@@ -24,15 +24,13 @@ if os.path.exists("/data/index.faiss"):
 else:
     document_store = FAISSDocumentStore(faiss_index_factory_str=configs["faiss_index"])
 
-<<<<<<< HEAD
-# Define Retriever
-=======
 
 # Get QA data
 data = pb.read_csv('qna.csv')
+data.fillna(value="", inplace=True)
 
 
-# Add documents to DB
+# Add documents to index
 
 dicts = []
 
@@ -41,20 +39,19 @@ for row in data.index:
     # create haystack document object with text content and doc metadata
        
     dicts.append({
-        'id': data["Question ID"][row],
-        'content': data["Answer"][row],
+        'id': data["question id"][row],
+        'content': data["answer"][row],
         'meta': {
-            "SME": data["SME"][row],
-            "Question": data["Question"][row],
-            "Alternate": data["Alternate Questions"][row]
+            "SME": data["sme"][row],
+            "Question": data["question"][row],
+            "Alternate": data["alternate questions"][row]
         }
     })
 
 document_store.write_documents(dicts)
 
 
-# Embed documents
->>>>>>> faiss-dev
+# Define retriever
 
 retriever = EmbeddingRetriever(
     document_store=document_store,
@@ -62,21 +59,6 @@ retriever = EmbeddingRetriever(
     model_format="sentence_transformers"
 )
 
-# Get QA data
-data = pb.read_csv('qna.csv')
-
-
-# Get dataframe with columns "question", "answer" and some custom metadata
-    
-data.fillna(value="", inplace=True)
-
-# Create embeddings for our questions from the FAQs
-
-
-# Convert Dataframe to list of dicts and index them in our DocumentStore
-
-docs_to_index = df.to_dict(orient="records")
-document_store.write_documents(docs_to_index)
 
 # Embed documents
 
