@@ -12,66 +12,70 @@ from haystack.pipelines import GenerativeQAPipeline
 
 # Create new local document store
 
-# document_store = FAISSDocumentStore(faiss_index_factory_str="Flat")
-
-# document_store.save(index_path="data/index.faiss", config_path="data/config.json")
+document_store = FAISSDocumentStore(faiss_index_factory_str="Flat")
 
 
-# Load existing document store
-
-document_store = FAISSDocumentStore.load(index_path="data/index.faiss", config_path="data/config.json")
 
 # Get QA data
-# data = pb.read_csv('qna.csv')
+data = pb.read_csv('qna.csv')
 
 
 # Add documents to DB
 
-# docs = []
+docs = []
 
-# for row in data.index:
+for row in data.index:
     
-#     # create haystack document object with text content and doc metadata
-#     doc = Document(
-#         id=data["Question ID"][row],
-#         content=data["Answer"][row],
-#         meta={
-#             "SME":data["SME"][row],
-#             "Question": data["Question"][row],
-#             "Alternate": data["Alternate Questions"][row]
-#         }
-#     )
-#     docs.append(doc)
+    # create haystack document object with text content and doc metadata
+    doc = Document(
+        id=data["Question ID"][row],
+        content=data["Answer"][row],
+        meta={
+            "SME":data["SME"][row],
+            "Question": data["Question"][row],
+            "Alternate": data["Alternate Questions"][row]
+        }
+    )
 
-   
-# document_store.write_documents(docs)
+    docs.append(doc)
 
 
-# # Embed documents
+document_store.write_documents(docs)
 
-# retriever = EmbeddingRetriever(
-#     document_store=document_store,
-#     embedding_model="flax-sentence-embeddings/all_datasets_v3_mpnet-base",
-#     model_format="sentence_transformers"
-# )
-# document_store.update_embeddings(
-#    retriever,
-#    batch_size=128
-# )
+
+# Embed documents
+
+retriever = EmbeddingRetriever(
+    document_store=document_store,
+    embedding_model="flax-sentence-embeddings/all_datasets_v3_mpnet-base",
+    model_format="sentence_transformers"
+)
+document_store.update_embeddings(
+   retriever,
+   batch_size=128
+)
 
 # Query QA pairs
 
 # input = input("Enter a prompt or question:")
-# input = "How often is UHG audited?"
+# # input = "How often is UHG audited?"
 
 # search_pipe = FAQPipeline(retriever)
 # result = search_pipe.run(
 #     query=input,
 #     params={"Retriever": {"top_k": 2}}
 # )
+
+document_store.save(index_path="data/index.faiss", config_path="data/config.json")\
+
+
+# Load document store
+document_store = FAISSDocumentStore.load(index_path="data/index.faiss", config_path="data/config.json")
+
 print("docs: ",document_store.get_document_count())
-# print(document_store.get_embedding_count())
-#print_answers(result, details="medium")
+print("embeds: ", document_store.get_embedding_count())
+
+# print_answers(result, details="medium")
 
 # generator = Seq2SeqGenerator(model_name_or_path="vblagoje/bart_lfqa")
 
