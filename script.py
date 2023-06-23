@@ -41,13 +41,11 @@ data = pb.read_csv('qna.csv')
 data.fillna(value="", inplace=True)
 
 # Create embeddings for our questions from the FAQs
-# questions = list(data["question"].values)
-# data["embedding"] = retriever.embed_queries(queries=questions).tolist()
-# df = data.rename(columns={"question": "content"})
+
 
 # Convert Dataframe to list of dicts and index them in our DocumentStore
 
-docs_to_index = data.to_dict(orient="records")
+docs_to_index = df.to_dict(orient="records")
 document_store.write_documents(docs_to_index)
 
 # Embed documents
