@@ -1,16 +1,20 @@
-from haystack.document_stores import FAISSDocumentStore
+import warnings
+from tqdm.auto import tqdm  # progress bar
 from datasets import load_dataset
+import pandas as pd
 import torch
+
+from haystack.document_stores import FAISSDocumentStore
 from haystack.nodes import EmbeddingRetriever
 from haystack import Document
-from tqdm.auto import tqdm  # progress bar
-
 from haystack.pipelines import FAQPipeline
-import pandas as pd
 from haystack.utils import print_answers
 
 import langchain
 from langchain.prompts import PromptTemplate
+
+# Warning filter
+# warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 
 loaded = False
 try:
@@ -68,18 +72,37 @@ while True:
     prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
 
     # print_answers(prediction, details="medium")
-    # print(prediction["answers"][0].meta)
+    # print(prediction["answer"][0].meta)
 
     prompt_question = query
-    print(f"Prompt Question: {prompt_question}")
+    # print(f"Prompt Question: {prompt_question}")
 
+    # Prompt context and score count
+    total_score = 0
+    count = 0
     prompt_context = ""
     for answer in prediction["answers"]:
         # print(answer.meta["Question ID"])
-        prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID= answer.meta["Question ID"], content=answer.meta["answer"])
-    print(f"Prompt Context:\n {prompt_context}")
 
+        # Score calculations
+        total_score += answer.score
+        count += 1
+
+        prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID= answer.meta["Question ID"], content=answer.meta["answer"])
+    # print(f"Prompt Context:\n {prompt_context}")
+
+    # Prompt Template
     print("Generating prompt...")
-    summary_prompt = PromptTemplate.from_template("Generate a coeherent response based off the following question.\n {question}\n Please use information from the following documents in the response and list the question IDs as sources in bullet points.\n {context}")
-    summary_prompt.format(question=prompt_question, context=prompt_context)
+    summary_prompt = PromptTemplate.from_template(
+    """
+    Generate a coeherent response based off the following question. If the question cannot be answered with the information reply with 'Question cannot be answered.'
+        Question: {question}\n
+    Please use information from the following context documents in the response and list the question IDs as sources in bullet points.
+        Context: {context}
+        Answer: """)
+    summary_prompt = summary_prompt.format(question=prompt_question, context=prompt_context)
     print(summary_prompt)
+
+    # Averaging score of answers
+    total_score /= count
+    print(f"Mean Score: {total_score}")
