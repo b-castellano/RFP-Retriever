@@ -1,3 +1,5 @@
+# NOTE: "pip install 'farm-haystack[faiss]'" required for this script to run
+
 from haystack.document_stores import FAISSDocumentStore
 from datasets import load_dataset
 import torch
@@ -45,9 +47,11 @@ if not loaded:
     docs_to_index = df.to_dict(orient="records")
     print("dictionaries:", len(docs_to_index))
     document_store.write_documents(docs_to_index)
-    document_store.update_embeddings(retriever)
 
     document_store.save(index_path="my_faiss_index.faiss")
+
+# TODO: uncomment for prod. Not needed when corpus isn't changing
+document_store.update_embeddings(retriever)
 
 print("docs:", document_store.get_document_count())
 print("embeddings:", document_store.get_embedding_count())
@@ -64,7 +68,7 @@ while True:
 
     print_answers(prediction, details="medium")
 
-    # print(prediction["answers"][0].meta)
+    print(prediction["answers"][0].meta)
 
     for answer in prediction["answers"]:
         print(answer.meta["Question ID"])
