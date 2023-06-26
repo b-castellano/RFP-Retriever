@@ -18,38 +18,13 @@ with open('configs.json') as user_file:
 
 newStore = False
 
-if os.path.exists("/data/index.faiss"):
-    document_store = FAISSDocumentStore.load(configs["index_path"])
-    newStore = True
+if os.path.exists(configs["index_path"]):
+
+    document_store = FAISSDocumentStore.load(index_path=configs["index_path"], config_path=configs["config_path"])
+    
 else:
     document_store = FAISSDocumentStore(faiss_index_factory_str=configs["faiss_index"])
-
-
-# Get QA data
-data = pb.read_csv('qna.csv')
-data.fillna(value="", inplace=True)
-
-
-# Add documents to index
-
-dicts = []
-
-for row in data.index:
-    
-    # create haystack document object with text content and doc metadata
-       
-    dicts.append({
-        'id': data["question id"][row],
-        'content': data["answer"][row],
-        'meta': {
-            "SME": data["sme"][row],
-            "Question": data["question"][row],
-            "Alternate": data["alternate questions"][row]
-        }
-    })
-
-document_store.write_documents(dicts)
-
+    newStore = True
 
 # Define retriever
 
@@ -59,6 +34,42 @@ retriever = EmbeddingRetriever(
     model_format="sentence_transformers"
 )
 
+# Add documents to index
+if (newStore):
+    
+    data = pb.read_csv('qna.csv')
+    data.fillna(value="", inplace=True)
+
+    batchSize = 256
+    docs = []
+
+    for row in data.index:
+
+        doc = Document(
+            id=row,
+            content= data["answer"][row],
+            meta={
+                "SME": data["sme"][row],
+                "Question": data["question"][row],
+                "Alternate": data["alternate questions"][row],
+                "ID":data["question id"][row]
+            }
+        )
+        docs.append(doc)
+        # create haystack document object with text content and doc metadata
+        if  row != 0 and (row % batchSize == 0 or row == len(data.index) - 1):
+            document_store.write_documents(docs)
+            embeds = retriever.embed_documents(docs)
+            for i, doc in enumerate(docs):
+                doc.embedding = embeds[i]
+            document_store.write_documents(docs)
+            print(row, " / ", len(data.index), " files added")
+            docs.clear()
+
+    # Save Document Store
+    document_store.save(index_path=configs["index_path"], config_path=configs["config_path"])
+
+
 
 # Embed documents
 
@@ -67,22 +78,19 @@ document_store.update_embeddings(
    batch_size=128
 )
 
-# Save Store
-if (newStore):
-
-    document_store.save(index_path="data/index.faiss", config_path="data/config.json")
-
-
-# Query QA pairs
+# Query 
 
 # input = input("Enter a prompt or question:")
 input = "How often is UHG audited?"
 
 search_pipe = FAQPipeline(retriever)
+
 result = search_pipe.run(
     query=input,
     params={"Retriever": {"top_k": 2}}
 )
+
+print("doc count:", document_store.get_document_count())
 
 print_answers(result, details="medium")
 

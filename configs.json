@@ -1,4 +1,5 @@
 {
-    "index_path" : "/data/index.faiss",
+    "index_path" : "./data/index.faiss",
+    "config_path" : "./data/config.json",
     "faiss_index": "Flat"
 }
