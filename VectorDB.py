@@ -23,9 +23,11 @@ except:
         duplicate_documents = 'overwrite'
     )
 
+'''
 print(document_store.metric_type)              # should output "cosine"
 print(document_store.get_document_count())     # should output "0"
 print(document_store.get_embedding_count())    # should output "0"
+'''
 
 retriever = EmbeddingRetriever(
     document_store=document_store,
@@ -65,20 +67,19 @@ while True:
     
     prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
 
-    print_answers(prediction, details="medium")
-
+    # print_answers(prediction, details="medium")
     # print(prediction["answers"][0].meta)
 
-    prompt_question = prediction["answers"][0].meta["query"]
+    prompt_question = query
     print(f"Prompt Question: {prompt_question}")
 
     prompt_context = ""
     for answer in prediction["answers"]:
-        print(answer.meta["Question ID"])
-        prompt_context += "{content}\n".format(content=answer.meta["answer"])
-    print(f"Prompt Context: {prompt_context}")
+        # print(answer.meta["Question ID"])
+        prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID= answer.meta["Question ID"], content=answer.meta["answer"])
+    print(f"Prompt Context:\n {prompt_context}")
 
     print("Generating prompt...")
-    summary_prompt = PromptTemplate.from_template("Generate a coeherent response based off the following question.\n {question}\n Please use information from the following documents in the response.\n{context}")
+    summary_prompt = PromptTemplate.from_template("Generate a coeherent response based off the following question.\n {question}\n Please use information from the following documents in the response and list the question IDs as sources in bullet points.\n {context}")
     summary_prompt.format(question=prompt_question, context=prompt_context)
     print(summary_prompt)
