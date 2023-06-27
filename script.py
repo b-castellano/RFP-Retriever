@@ -14,14 +14,15 @@ from haystack.pipelines import GenerativeQAPipeline
 with open('configs.json') as user_file:
   configs = json.load(user_file)
   
-# Create new local document store
+
 
 newStore = False
-
+# Create new local document store
 if os.path.exists(configs["index_path"]):
 
     document_store = FAISSDocumentStore.load(index_path=configs["index_path"], config_path=configs["config_path"])
-    
+
+# Load in existing one
 else:
     document_store = FAISSDocumentStore(faiss_index_factory_str=configs["faiss_index"])
     newStore = True
@@ -40,17 +41,17 @@ if (newStore):
     data = pb.read_csv('qna.csv')
     data.fillna(value="", inplace=True)
 
-    batchSize = 256
+    batchSize = 1000
     docs = []
 
     for row in data.index:
 
         doc = Document(
             id=row,
-            content= data["answer"][row],
+            content= data["question"][row],
             meta={
                 "SME": data["sme"][row],
-                "Question": data["question"][row],
+                "Answer": data["answer"][row],
                 "Alternate": data["alternate questions"][row],
                 "ID":data["question id"][row]
             }
@@ -68,20 +69,18 @@ if (newStore):
 
     # Save Document Store
     document_store.save(index_path=configs["index_path"], config_path=configs["config_path"])
+    # Embed documents
 
+    document_store.update_embeddings(
+    retriever,
+    batch_size=1000
+    )
 
-
-# Embed documents
-
-document_store.update_embeddings(
-   retriever,
-   batch_size=128
-)
 
 # Query 
 
 # input = input("Enter a prompt or question:")
-input = "How often is UHG audited?"
+input = "In the event of an incident, does your organization have response capabilities to support the isolation of all cloud service customer data and systems (e.g., servers, operating systems, applications, databases, networking, storage, virtualization and security) that are hosted in cloud service environments?"
 
 search_pipe = FAQPipeline(retriever)
 
@@ -90,9 +89,8 @@ result = search_pipe.run(
     params={"Retriever": {"top_k": 2}}
 )
 
-print("doc count:", document_store.get_document_count())
-
-print_answers(result, details="medium")
+for doc in result["documents"]:
+    print("Question: ", doc.content, "   Answer: ", doc.meta["Answer"])
 
 # generator = Seq2SeqGenerator(model_name_or_path="vblagoje/bart_lfqa")
 
