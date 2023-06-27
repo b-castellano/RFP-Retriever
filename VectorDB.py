@@ -15,7 +15,7 @@ from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
 
 # Warning filter
-warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
+# warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 
 loaded = False
 try:
@@ -64,6 +64,54 @@ print("embeddings:", document_store.get_embedding_count())
 
 pipe = FAQPipeline(retriever=retriever)
 
+# Example Prompt Answers
+examples = [
+    {
+    "question": "Does your company have an access control policy?",
+    "answer":
+"""
+   Yes that is correct.     
+""",
+    "ci": "95.3%",
+    "sources":
+"""
+* Source 1
+* Source 2
+* Source 3
+"""
+    },
+    {
+    "question": "Test 2 Question",
+    "answer":
+"""
+    Test 2 Answer.   
+""",
+    "ci": "50.3%",
+    "sources":
+"""
+* Source 4
+* Source 5
+"""
+    }
+]
+
+example_prompt = PromptTemplate(input_variables=["question", "answer", "ci", "sources"], template="Question: {question}\n Answer: {answer}\n Confidence Interval: {ci}\n Sources: {sources}")
+
+# Prompt Template Generation
+fs_prompt = FewShotPromptTemplate (
+    examples=examples,
+    example_prompt=example_prompt,
+    suffix="""
+Generate a coeherent response based off the following question using the above examples as formating reference. If the question cannot be answered with the information reply with 'Question cannot be answered.'
+    Question: {question}\n
+Please use information from the following context documents in the response and list the question IDs as sources in bullet points.
+    Context: {context}
+Also include the confience interval at the end of the answer.
+    Confidence Interval: {ci}
+    Answer: """,
+    input_variables=["question", "context", "ci"]
+)
+
 while True:
 
     query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
@@ -89,57 +137,10 @@ while True:
         total_score += answer.score
         count += 1
 
-        prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID= answer.meta["Question ID"], content=answer.meta["answer"])
+        prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"])
     total_score /= count
     # print(f"Prompt Context:\n {prompt_context}")
-    # print(f"Mean Score: {total_score}")
+    print(f"Mean Score: {total_score}")
 
-    # Example Prompt Answers
-    examples = [
-        {
-            "question": "Does your company have an access control policy?",
-            "answer":
-    """
-       Yes for sure that it correct.     
-    """,
-            "ci": "95.3%",
-            "sources":
-    """
-    * Source 1
-    * Source 2
-    * Source 3
-    """
-        },
-        {
-            "question": "Test 2",
-            "answer":
-    """
-         Test answer 2.   
-    """,
-            "ci": "50.3%",
-            "sources":
-    """
-    * Source 4
-    * Source 5
-    """
-        }
-    ]
-    example_prompt = PromptTemplate(input_variables=["question", "answer", "ci", "sources"], template="Question: {question}\n Answer: {answer}\n Confidence Interval: {ci}\n Sources: {sources}")
-
-    # Prompt Template Generation
     print("Generating prompt...")
-    fs_prompt = FewShotPromptTemplate (
-        examples=examples,
-        example_prompt=example_prompt,
-        suffix="""
-    Generate a coeherent response based off the following question using the above examples as formating reference. If the question cannot be answered with the information reply with 'Question cannot be answered.'
-        Question: {question}\n
-    Please use information from the following context documents in the response and list the question IDs as sources in bullet points.
-        Context: {context}
-    Also include the confience interval at the end of the answer.
-        Confidence Interval: {ci}
-        Answer: """,
-        input_variables=["question", "context", "ci"]
-    )
-
     print(fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score))
