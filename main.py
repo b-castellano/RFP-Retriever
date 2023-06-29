@@ -3,6 +3,7 @@ from tqdm.auto import tqdm  # progress bar
 from datasets import load_dataset
 import pandas as pd
 import torch
+import openai
 
 from haystack.document_stores import FAISSDocumentStore
 from haystack.nodes import EmbeddingRetriever
@@ -15,7 +16,7 @@ from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
 
 # Warning filter
-# warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
+warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 
 loaded = False
 try:
@@ -28,11 +29,9 @@ except:
         duplicate_documents = 'overwrite'
     )
 
-'''
 print(document_store.metric_type)              # should output "cosine"
 print(document_store.get_document_count())     # should output "0"
 print(document_store.get_embedding_count())    # should output "0"
-'''
 
 retriever = EmbeddingRetriever(
     document_store=document_store,
@@ -70,7 +69,7 @@ examples = [
     "question": "Does your company have an access control policy?",
     "answer":
 """
-   Yes that is correct.     
+   Yes, that is correct.     
 """,
     "ci": "95.3%",
     "sources":
@@ -84,13 +83,13 @@ examples = [
     "question": "Test 2 Question",
     "answer":
 """
-    Test 2 Answer.   
+    Test 2 answer.   
 """,
     "ci": "50.3%",
     "sources":
 """
-* Source 4
-* Source 5
+* Source 1
+* Source 2
 """
     }
 ]
@@ -108,9 +107,15 @@ Please use information from the following context documents in the response and 
     Context: {context}
 Also include the confience interval at the end of the answer.
     Confidence Interval: {ci}
-    Answer: """,
+    Answer:""",
     input_variables=["question", "context", "ci"]
 )
+
+openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
+openai.api_type = "azure"
+openai.api_version = "2023-05-15"
+openai.api_base = "https://immerse.openai.azure.com/"
+deployment_name='immerse-3-5'
 
 while True:
 
@@ -143,4 +148,22 @@ while True:
     print(f"Mean Score: {total_score}")
 
     print("Generating prompt...")
-    print(fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score))
+    print("PROMPT:\n=======================",fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score), "\n=======================")
+   
+    question = fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score)
+    print(question)
+
+    response = openai.Completion.create(
+        engine=deployment_name,
+        prompt=(f"Question: {question}\n"
+                "Answer:"
+                ),
+        max_tokens=2000,
+        n=1,
+        top_p=0.7,
+        temperature=0.7,
+        frequency_penalty= 0.5,
+        presence_penalty= 0.2
+    )
+    gptResponse = response.choices[0].text.split('\n')[0]
+    print("OUTPUT:\n=======================",gptResponse,"\n=======================")
