@@ -1,20 +1,24 @@
 import os
 import json
-from haystack.document_stores import FAISSDocumentStore
 import pandas as pb
-from haystack import Document
 from tqdm.auto import tqdm  # progress bar
+
+from haystack.document_stores import FAISSDocumentStore
+from haystack import Document
 from haystack.nodes import EmbeddingRetriever
 from haystack.pipelines import FAQPipeline
 from haystack.utils import print_answers
 from haystack.nodes import Seq2SeqGenerator
 from haystack.pipelines import GenerativeQAPipeline
 
+import langchain
+from langchain.prompts import PromptTemplate
+from langchain.prompts.few_shot import FewShotPromptTemplate
+
 # Get configs
 with open('configs.json') as user_file:
   configs = json.load(user_file)
   
-
 
 newStore = False
 # Create new local document store
@@ -24,6 +28,7 @@ if os.path.exists(configs["index_path"]):
 
 # Load in existing one
 else:
+
     document_store = FAISSDocumentStore(faiss_index_factory_str=configs["faiss_index"])
     newStore = True
 
@@ -69,8 +74,8 @@ if (newStore):
 
     # Save Document Store
     document_store.save(index_path=configs["index_path"], config_path=configs["config_path"])
-    # Embed documents
 
+    # Embed documents
     document_store.update_embeddings(
     retriever,
     batch_size=1000
