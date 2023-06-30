@@ -58,54 +58,10 @@ print("embeddings:", document_store.get_embedding_count())
 pipe = FAQPipeline(retriever=retriever)
 
 
-# Example Prompt Answers
-examples = [
-    {
-    "question": "Does your company have an access control policy?",
-    "answer":
-"""
-   Yes that is correct.     
-""",
-    "ci": "95.3%",
-    "sources":
-"""
-* Source 1
-* Source 2
-* Source 3
-"""
-    },
-    {
-    "question": "Test 2 Question",
-    "answer":
-"""
-    Test 2 Answer.   
-""",
-    "ci": "50.3%",
-    "sources":
-"""
-* Source 4
-* Source 5
-"""
-    }
-]
 
-example_prompt = PromptTemplate(input_variables=["question", "answer", "ci", "sources"], template="Question: {question}\n Answer: {answer}\n Confidence Interval: {ci}\n Sources: {sources}")
 
-# Prompt Template Generation
+# Populate variables in template
 
-fs_prompt = FewShotPromptTemplate (
-    examples=examples,
-    example_prompt=example_prompt,
-    suffix="""
-Generate a coeherent response based off the following question using the above examples as formating reference. If the question cannot be answered with the information reply with 'Question cannot be answered.'
-    Question: {question}\n
-Please use information from the following context documents in the response and list the question IDs as sources in bullet points.
-    Context: {context}
-Also include the confience interval at the end of the answer.
-    Confidence Interval: {ci}
-    Answer: """,
-    input_variables=["question", "context", "ci"]
-)
 
 openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
 openai.api_type = "azure"
@@ -113,52 +69,44 @@ openai.api_version = "2023-05-15"
 openai.api_base = "https://immerse.openai.azure.com/"
 deployment_name='immerse-3-5'
 
-while True:
-
-    query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
-    if query == "STOP":
-        break
+#while True:
+query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
+    # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
+    # if query == "STOP":
+    #     break
     
-    prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
+prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
 
-    # print_answers(prediction, details="medium")
-    # print(prediction["answer"][0].meta)
+# Create prompt template
+prompt = PromptTemplate(input_variables=["prefix","question", "context"], template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
-    prompt_question = query
-    # print(f"Prompt Question: {prompt_question}")
+# Provide instructions/prefix
+prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate a response. In addition, list the question ID's of the answers you used in your response"
 
-    # Prompt context and score count
-    total_score = 0
-    count = 0
-    prompt_context = ""
-    for answer in prediction["answers"]:
-        # print(answer.meta["Question ID"])
+# Create context
+context = ""
+for answer in prediction["answers"]:
+    
+    context += "Question ID: {ID}, Confidence Score: {confidence}, Content: {content}\n".format(ID=answer.meta["question ID"], confidence=answer.score, content=answer.meta["answer"])
 
-        # Score calculations
-        total_score += answer.score
-        count += 1
-
-        prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"])
-    total_score /= count
-    # print(f"Prompt Context:\n {prompt_context}")
-    print(f"Mean Score: {total_score}")
-
-    print("Generating prompt...")
-    question  = fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score)
-    response = openai.Completion.create(
-        engine=deployment_name,
-        prompt=(f"Question: {question}\n"
-                "Answer:"
-                ),
-        max_tokens=100,
-        n=1,
-        top_p=0.7,
-        temperature=0.5,
-        frequency_penalty= 0.5,
-        presence_penalty= 0.2
-    )
-    gptResponse = response.choices[0].text.split('\n')[0]
-    print("OUTPUT:\n=======================",gptResponse,"\n=======================")
+#Generate Prompt
+print("Generating prompt...")
+prompt=prompt.format(prefix=prefix,question=query,context=context)
+print("PROMPT:", prompt)
+response = openai.Completion.create(
+    engine=deployment_name,
+    prompt=(f"Question: {prompt}\n"
+            "Answer:"
+            ),
+    max_tokens=200,
+    n=1,
+    top_p=0.7,
+    temperature=0.5,
+    frequency_penalty= 0.5,
+    presence_penalty= 0.2
+)
+gptResponse = response.choices[0].text.split('\n')[0]
+print("OUTPUT:\n=======================",gptResponse,"\n=======================")
 
 
 
