@@ -58,9 +58,6 @@ print("embeddings:", document_store.get_embedding_count())
 pipe = FAQPipeline(retriever=retriever)
 
 
-# Populate variables in template
-
-
 openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
 openai.api_type = "azure"
 openai.api_version = "2023-05-15"
@@ -80,19 +77,27 @@ prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                         template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
 # Provide instructions/prefix
-prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer."
+prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question IDs of the answers you referenced at the end of your response."
 
 # Create context
 context = ""
+avgscore = 0
+count = 0
 for answer in prediction["answers"]:
-
-    context += "Question ID: {ID}, Confidence Score: {confidence}, Content: {content}\n".format(
-        ID=answer.meta["question ID"], confidence=answer.score, content=answer.meta["answer"])
+    if (answer.score > .7):
+        context += "Question ID: {ID}, Content: {content}\n".format(
+            ID=answer.meta["question ID"], content=answer.meta["answer"])
+        avgscore += answer.score
+        count+=1
+avgscore /= count   # convert total score to avg
+avgscore *= 100      # convert from decimal to percentage
 
 # Generate Prompt
 print("Generating prompt...")
 prompt = prompt.format(prefix=prefix, question=query, context=context)
 print("PROMPT:", prompt)
+
+# Call openai API
 response = openai.Completion.create(
     engine=deployment_name,
     prompt=(f"Question: {prompt}\n"
@@ -105,6 +110,7 @@ response = openai.Completion.create(
     frequency_penalty=0.5,
     presence_penalty=0.2
 )
+
 gptResponse = response.choices[0].text.split('\n')[0]
-print("OUTPUT:\n=======================",
-      gptResponse, "\n=======================")
+
+print(f"OUTPUT:\n======================={gptResponse}\nConfidence score: {avgscore}%\n=======================")
