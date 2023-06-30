@@ -64,45 +64,31 @@ pipe = FAQPipeline(retriever=retriever)
 examples = [
     {
     "question": "Does your company have an access control policy?",
-    "answer":
-"""
-   Yes that is correct.     
-""",
-    "ci": "95.3%",
-    "sources":
-"""
-* Source 1
-* Source 2
-* Source 3
-"""
-    },
-    {
-    "question": "Test 2 Question",
-    "answer":
-"""
-    Test 2 Answer.   
-""",
-    "ci": "50.3%",
-    "sources":
-"""
-* Source 4
-* Source 5
-"""
+    "answer":"Yes that is correct. /n Confidence Interval: %95.3,
+    Sources:
+    * Source 1
+    * Source 2
+    * Source 3 "
     }
 ]
 
-example_prompt = PromptTemplate(input_variables=["question", "answer", "ci", "sources"], template="Question: {question}\n Answer: {answer}\n Confidence Interval: {ci}\n Sources: {sources}")
+example_prompt = PromptTemplate(input_variables=["question", "answer", "ci", "sources"], template="""Question: {question}\n Answer: {answer}\n Confidence Interval: {ci}\n Sources: {sources}""")
+
+prefix = """The following are examples of questions and answers related to the security of a company. The responses are professional. Here are a few examples:"""
+suffix="""
+ If the question cannot be answered with the information reply with 'Question cannot be answered.'
+    Question: {question}\n
+Please use information from the following context documents in the response and list the question IDs as sources in bullet points.
+    Context: {context}
+Also include the confidence interval at the end of the answer.
+    Confidence Interval: {ci}
+    Answer: """
 
 # Prompt Template Generation
 fs_prompt = FewShotPromptTemplate (
     examples=examples,
     example_prompt=example_prompt,
-    suffix="""
-Generate a coeherent response based off the following question using the above examples as formating reference. If the question cannot be answered with the information reply with 'Question cannot be answered.'In your response, include the confidence interval at the end of the answer.
-    Question: {question}\n
-    Context: {context}
-    Confidence Interval: {ci}
-    Answer: """,
+    suffix=suffix,
     input_variables=["question", "context", "ci"]
 )
 
@@ -154,7 +140,7 @@ while True:
         max_tokens=100,
         n=1,
         top_p=0.7,
-        temperature=0.7,
+        temperature=0.5,
         frequency_penalty= 0.5,
         presence_penalty= 0.2
     )
