@@ -23,7 +23,7 @@ except:
     document_store = FAISSDocumentStore(
         similarity="cosine",
         embedding_dim=768,
-        duplicate_documents = 'overwrite'
+        duplicate_documents='overwrite'
     )
 
 
@@ -58,8 +58,6 @@ print("embeddings:", document_store.get_embedding_count())
 pipe = FAQPipeline(retriever=retriever)
 
 
-
-
 # Populate variables in template
 
 
@@ -67,53 +65,46 @@ openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
 openai.api_type = "azure"
 openai.api_version = "2023-05-15"
 openai.api_base = "https://immerse.openai.azure.com/"
-deployment_name='immerse-3-5'
+deployment_name = 'immerse-3-5'
 
-#while True:
+# while True:
 query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
-    # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
-    # if query == "STOP":
-    #     break
-    
+# query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
+# if query == "STOP":
+#     break
+
 prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
 
 # Create prompt template
-prompt = PromptTemplate(input_variables=["prefix","question", "context"], template="{prefix}\nQuestion: {question}\n Context: {context}\n")
+prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
+                        template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
 # Provide instructions/prefix
-prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate a response. In addition, list the question ID's of the answers you used in your response"
+prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer."
 
 # Create context
 context = ""
 for answer in prediction["answers"]:
-    
-    context += "Question ID: {ID}, Confidence Score: {confidence}, Content: {content}\n".format(ID=answer.meta["question ID"], confidence=answer.score, content=answer.meta["answer"])
 
-#Generate Prompt
+    context += "Question ID: {ID}, Confidence Score: {confidence}, Content: {content}\n".format(
+        ID=answer.meta["question ID"], confidence=answer.score, content=answer.meta["answer"])
+
+# Generate Prompt
 print("Generating prompt...")
-prompt=prompt.format(prefix=prefix,question=query,context=context)
+prompt = prompt.format(prefix=prefix, question=query, context=context)
 print("PROMPT:", prompt)
 response = openai.Completion.create(
     engine=deployment_name,
     prompt=(f"Question: {prompt}\n"
             "Answer:"
             ),
-    max_tokens=200,
+    max_tokens=300,
     n=1,
     top_p=0.7,
-    temperature=0.5,
-    frequency_penalty= 0.5,
-    presence_penalty= 0.2
+    temperature=0.3,
+    frequency_penalty=0.5,
+    presence_penalty=0.2
 )
 gptResponse = response.choices[0].text.split('\n')[0]
-print("OUTPUT:\n=======================",gptResponse,"\n=======================")
-
-
-
-
-
-
-
-
-
-
+print("OUTPUT:\n=======================",
+      gptResponse, "\n=======================")
