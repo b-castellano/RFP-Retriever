@@ -96,7 +96,7 @@ examples = [
 
 example_prompt = PromptTemplate(input_variables=["question", "answer", "ci", "sources"], template="Question: {question}\n Answer: {answer}\n Confidence Interval: {ci}\n Sources: {sources}")
 
-# Prompt Template Generation
+# FewShotPrompt Template Generation
 fs_prompt = FewShotPromptTemplate (
     examples=examples,
     example_prompt=example_prompt,
@@ -110,6 +110,47 @@ Also include the confience interval at the end of the answer.
     Answer:""",
     input_variables=["question", "context", "ci"]
 )
+
+# Normal Template
+template = """Give a coherent response to the question based on the context below then include the confidence score and question IDs. Fill in the required information in the empty spaces below.
+
+Question: {question}
+Context: {context}
+Confidence Score: {ci}
+Question IDs: {ID}
+
+Provde an answer then put confidence score after and put all question IDs as sources from the above information.
+
+Output:
+"""
+
+gpt_prompt = PromptTemplate (
+    input_variables=["context","question","ci","ID"],
+    template=template
+)
+
+# Simple Template
+template_simple = """Give a coherent and thorough response to the question based on the context below.
+
+Question: {question}
+
+Context: {context}
+
+Answer:
+"""
+
+gpt_prompt_simple = PromptTemplate (
+    input_variables=["question","context"],
+    template=template_simple
+)
+print(f"Simple_Prompt: {gpt_prompt_simple}")
+
+# Open AI Information
+openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
+openai.api_type = "azure"
+openai.api_version = "2023-05-15"
+openai.api_base = "https://immerse.openai.azure.com/"
+deployment_name='immerse-3-5'
 
 while True:
 
@@ -129,6 +170,7 @@ while True:
     total_score = 0
     count = 0
     prompt_context = ""
+    prompt_ids = ""
     for answer in prediction["answers"]:
         # print(answer.meta["Question ID"])
 
@@ -137,9 +179,39 @@ while True:
         count += 1
 
         prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"])
+        prompt_ids += "{ID}\n".format(ID=answer.meta["question ID"])
     total_score /= count
     # print(f"Prompt Context:\n {prompt_context}")
     print(f"Mean Score: {total_score}")
 
     print("Generating prompt...")
     print(fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score))
+    question = fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score)
+    prompt_template = gpt_prompt.format(context=prompt_context, question=prompt_question,ci=total_score,ID=prompt_ids)
+    prompt_template_simple = gpt_prompt_simple.format(question=prompt_question, context=prompt_context)
+
+    # AI Response Prompt
+    print("PROMPT:\n=======================",fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score), "\n=======================")
+    response = openai.Completion.create(
+        engine=deployment_name,
+        prompt=(prompt_template_simple ),
+        max_tokens=2000,
+        n=1,
+        top_p=0.7,
+        temperature=0.7,
+        frequency_penalty= 0.5,
+        presence_penalty= 0.2
+    )
+    gptResponse = response.choices[0].text.split('\n')[0]
+    print("OUTPUT:\n=======================",gptResponse,"\n=======================")
+
+    # Manual output
+    output = """
+    Answer: {answer}
+    Confidence Score: {ci}
+    Sources:
+{IDs}
+    """
+
+    output = output.format(answer=gptResponse, ci=total_score, IDs=prompt_ids)
+    print(output)
