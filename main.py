@@ -26,9 +26,6 @@ except:
         duplicate_documents = 'overwrite'
     )
 
-print(document_store.metric_type)              # should output "cosine"
-print(document_store.get_document_count())     # should output "0"
-print(document_store.get_embedding_count())    # should output "0"
 
 retriever = EmbeddingRetriever(
     document_store=document_store,
@@ -60,35 +57,53 @@ print("embeddings:", document_store.get_embedding_count())
 
 pipe = FAQPipeline(retriever=retriever)
 
+
 # Example Prompt Answers
 examples = [
     {
     "question": "Does your company have an access control policy?",
-    "answer":"Yes that is correct. /n Confidence Interval: %95.3,
-    Sources:
-    * Source 1
-    * Source 2
-    * Source 3 "
+    "answer":
+"""
+   Yes that is correct.     
+""",
+    "ci": "95.3%",
+    "sources":
+"""
+* Source 1
+* Source 2
+* Source 3
+"""
+    },
+    {
+    "question": "Test 2 Question",
+    "answer":
+"""
+    Test 2 Answer.   
+""",
+    "ci": "50.3%",
+    "sources":
+"""
+* Source 4
+* Source 5
+"""
     }
 ]
 
-example_prompt = PromptTemplate(input_variables=["question", "answer", "ci", "sources"], template="""Question: {question}\n Answer: {answer}\n Confidence Interval: {ci}\n Sources: {sources}""")
-
-prefix = """The following are examples of questions and answers related to the security of a company. The responses are professional. Here are a few examples:"""
-suffix="""
- If the question cannot be answered with the information reply with 'Question cannot be answered.'
-    Question: {question}\n
-Please use information from the following context documents in the response and list the question IDs as sources in bullet points.
-    Context: {context}
-Also include the confidence interval at the end of the answer.
-    Confidence Interval: {ci}
-    Answer: """
+example_prompt = PromptTemplate(input_variables=["question", "answer", "ci", "sources"], template="Question: {question}\n Answer: {answer}\n Confidence Interval: {ci}\n Sources: {sources}")
 
 # Prompt Template Generation
+
 fs_prompt = FewShotPromptTemplate (
     examples=examples,
     example_prompt=example_prompt,
-    suffix=suffix,
+    suffix="""
+Generate a coeherent response based off the following question using the above examples as formating reference. If the question cannot be answered with the information reply with 'Question cannot be answered.'
+    Question: {question}\n
+Please use information from the following context documents in the response and list the question IDs as sources in bullet points.
+    Context: {context}
+Also include the confience interval at the end of the answer.
+    Confidence Interval: {ci}
+    Answer: """,
     input_variables=["question", "context", "ci"]
 )
 
@@ -123,15 +138,13 @@ while True:
         total_score += answer.score
         count += 1
 
-        prompt_context += answer.meta["answer"]
+        prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"])
     total_score /= count
     # print(f"Prompt Context:\n {prompt_context}")
     print(f"Mean Score: {total_score}")
 
     print("Generating prompt...")
-    print("PROMPT:\n=======================",fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score), "\n=======================")
-   
-    question = fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score)
+    question  = fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score)
     response = openai.Completion.create(
         engine=deployment_name,
         prompt=(f"Question: {question}\n"
