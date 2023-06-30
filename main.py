@@ -4,6 +4,7 @@ from datasets import load_dataset
 import pandas as pd
 import torch
 import openai
+import os
 
 from haystack.document_stores import FAISSDocumentStore
 from haystack.nodes import EmbeddingRetriever
@@ -17,6 +18,7 @@ from langchain.prompts.few_shot import FewShotPromptTemplate
 
 # Warning filter
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 loaded = False
 try:
@@ -29,9 +31,11 @@ except:
         duplicate_documents = 'overwrite'
     )
 
+'''
 print(document_store.metric_type)              # should output "cosine"
 print(document_store.get_document_count())     # should output "0"
 print(document_store.get_embedding_count())    # should output "0"
+'''
 
 retriever = EmbeddingRetriever(
     document_store=document_store,
@@ -63,7 +67,7 @@ print("embeddings:", document_store.get_embedding_count())
 
 pipe = FAQPipeline(retriever=retriever)
 
-# Example Prompt Answers
+# FewShotPrompt Template
 examples = [
     {
     "question": "Does your company have an access control policy?",
@@ -93,11 +97,9 @@ examples = [
 """
     }
 ]
-
 example_prompt = PromptTemplate(input_variables=["question", "answer", "ci", "sources"], template="Question: {question}\n Answer: {answer}\n Confidence Interval: {ci}\n Sources: {sources}")
 
-# FewShotPrompt Template Generation
-fs_prompt = FewShotPromptTemplate (
+fs_template = FewShotPromptTemplate (
     examples=examples,
     example_prompt=example_prompt,
     suffix="""
@@ -124,7 +126,7 @@ Provde an answer then put confidence score after and put all question IDs as sou
 Output:
 """
 
-gpt_prompt = PromptTemplate (
+gpt_template = PromptTemplate (
     input_variables=["context","question","ci","ID"],
     template=template
 )
@@ -139,11 +141,13 @@ Context: {context}
 Answer:
 """
 
-gpt_prompt_simple = PromptTemplate (
+gpt_template_simple = PromptTemplate (
     input_variables=["question","context"],
     template=template_simple
 )
-print(f"Simple_Prompt: {gpt_prompt_simple}")
+
+# Dylan Prompting
+prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer."
 
 # Open AI Information
 openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
@@ -154,17 +158,15 @@ deployment_name='immerse-3-5'
 
 while True:
 
-    query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
-    if query == "STOP":
-        break
+    #query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
+    #if query == "STOP":
+    #    break
     
-    prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
-    
-    # print_answers(prediction, details="medium")
-    # print(prediction["answer"][0].meta)
+    query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
 
-    prompt_question = query
-    # print(f"Prompt Question: {prompt_question}")
+    prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
+
+    prompt_question = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
 
     # Prompt context and score count
     total_score = 0
@@ -172,38 +174,34 @@ while True:
     prompt_context = ""
     prompt_ids = ""
     for answer in prediction["answers"]:
-        # print(answer.meta["Question ID"])
-
-        # Score calculations
         total_score += answer.score
         count += 1
 
         prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"])
         prompt_ids += "{ID}\n".format(ID=answer.meta["question ID"])
     total_score /= count
-    # print(f"Prompt Context:\n {prompt_context}")
-    print(f"Mean Score: {total_score}")
 
     print("Generating prompt...")
-    print(fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score))
-    question = fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score)
-    prompt_template = gpt_prompt.format(context=prompt_context, question=prompt_question,ci=total_score,ID=prompt_ids)
-    prompt_template_simple = gpt_prompt_simple.format(question=prompt_question, context=prompt_context)
+    fs_prompt = fs_template.format(question=prompt_question, context=prompt_context, ci=total_score)
+    gpt_prompt = gpt_template.format(context=prompt_context, question=prompt_question,ci=total_score,ID=prompt_ids)
+    gpt_prompt_simple = gpt_template_simple.format(question=prompt_question, context=prompt_context)
+
+    full_prompt = gpt_prompt_simple
 
     # AI Response Prompt
-    print("PROMPT:\n=======================",fs_prompt.format(question=prompt_question, context=prompt_context, ci=total_score), "\n=======================")
+    print("PROMPT:\n=======================\n",full_prompt,"\n=======================\n")
     response = openai.Completion.create(
         engine=deployment_name,
-        prompt=(prompt_template_simple ),
-        max_tokens=2000,
+        prompt=(full_prompt),
+        max_tokens=1000,
         n=1,
         top_p=0.7,
-        temperature=0.7,
+        temperature=0.3,
         frequency_penalty= 0.5,
         presence_penalty= 0.2
     )
     gptResponse = response.choices[0].text.split('\n')[0]
-    print("OUTPUT:\n=======================",gptResponse,"\n=======================")
+    print("OUTPUT:\n=======================\n",gptResponse,"\n=======================\n")
 
     # Manual output
     output = """
@@ -215,3 +213,5 @@ while True:
 
     output = output.format(answer=gptResponse, ci=total_score, IDs=prompt_ids)
     print(output)
+    
+    break
