@@ -5,6 +5,7 @@ import pandas as pd
 import torch
 import openai
 import os
+import random
 
 from haystack.document_stores import FAISSDocumentStore
 from haystack.nodes import EmbeddingRetriever
@@ -162,20 +163,23 @@ gpt_template_dylan = PromptTemplate (
     template=template_dylan
 )
 
+# Modified FewShotTemplate
 fs_template_modified = FewShotPromptTemplate (
     examples=examples,
     example_prompt=example_prompt,
     suffix="""
-    You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer."
+    You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner.
+    Use the examples above as a reference for formating.
+    Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'.
+    Use the answers within the context to formulate your response in under two hundred words. 
+    In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer.
+    Include the average confidence score of the referenced context portions at the end of your answer."
 
-Generate a coeherent response based off the following question using the above examples as formating reference. If the question cannot be answered with the information reply with 'Question cannot be answered.'
-    Question: {question}\n
-Please use information from the following context documents in the response and list the question IDs as sources in bullet points.
+    Question: {question}
+
     Context: {context}
-Also include the confience interval at the end of the answer.
-    Confidence Interval: {ci}
-    Answer:""",
-    input_variables=["question", "context", "ci"]
+    """,
+    input_variables=["question", "context"]
 )
 
 # Open AI Information
@@ -185,16 +189,33 @@ openai.api_version = "2023-05-15"
 openai.api_base = "https://immerse.openai.azure.com/"
 deployment_name='immerse-3-5'
 
+# Manual Question Storage
+questions = [
+"Does your company have an access control policy?",
+"Is company information backed up regularly?",
+"Do your security policies require standard encryption solutions and protocols?",
+"Does your company monitor for unauthorized actions?"
+]
+n = 0
+
 while True:
 
     #query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
     #if query == "STOP":
     #    break
-    
-    query = "Does your company have an access control policy?"
-    prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
 
-    prompt_question = "Does your company have an access control policy?"
+    # Get n questions for mass testing
+    '''
+    df = pd.read_csv("qna.csv")
+    max = len(list(df["question"].values))
+    i = random.randint(0, max+1)
+    query = df["question"].values[i]
+    '''
+
+    df = pd.read_csv("qna.csv")
+    query = df["question"].values[n]
+    prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
+    prompt_question = query
 
     # Prompt context and score count
     total_score = 0
@@ -202,18 +223,22 @@ while True:
     prompt_context = ""
     prompt_ids = ""
     for answer in prediction["answers"]:
-        total_score += answer.score
-        count += 1
+        if (answer.score > 0.7):
+            prompt_context += "Question ID: {ID}\n Content: {content}\n Confidence Score: {ci}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"], ci=answer.score)
+            prompt_ids += "{ID}\n".format(ID=answer.meta["question ID"])
 
-        prompt_context += "Question ID: {ID}\n Content: {content}\n Confidence Score: {ci}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"], ci=answer.score)
-        prompt_ids += "{ID}\n".format(ID=answer.meta["question ID"])
+            total_score += answer.score
+            count += 1
     total_score /= count
+    print(f"{total_score}")
 
     print("Generating prompt...")
+    # Prompt Storage
     fs_prompt = fs_template.format(question=prompt_question, context=prompt_context, ci=total_score)
     gpt_prompt = gpt_template.format(context=prompt_context, question=prompt_question,ci=total_score,ID=prompt_ids)
     gpt_prompt_simple = gpt_template_simple.format(question=prompt_question, context=prompt_context)
     gpt_prompt_dylan = gpt_template_dylan.format(question=prompt_question, context=prompt_context)
+    fs_prompt_modified = fs_template_modified.format(question=prompt_question, context=prompt_context)
 
     full_prompt = gpt_prompt_dylan
 
@@ -232,9 +257,9 @@ while True:
     gptResponse = response.choices[0].text.split('\n')[0]
     print("OUTPUT:\n=======================\n",gptResponse,"\n=======================\n")
 
-    # Manual output
+    # Comparision Output
     output = """
-    Answer: {answer}
+    {answer}
     Confidence Score: {ci}
     Sources:
 {IDs}
@@ -243,4 +268,7 @@ while True:
     output = output.format(answer=gptResponse, ci=total_score, IDs=prompt_ids)
     print(output)
     
-    break
+    # Amount of question to run through
+    if (n == 3):
+        break
+    n += 1
