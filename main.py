@@ -146,7 +146,11 @@ gpt_template_simple = PromptTemplate (
     template=template_simple
 )
 
-template_dylan = """"You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer."
+template_dylan = """"You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. 
+Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. 
+Use the answers within the context to formulate your response in under two hundred words. 
+In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer.
+Include the average confidence score of the referenced context portions at the end of your answer."
 
 Question: {question}
 
@@ -158,8 +162,21 @@ gpt_template_dylan = PromptTemplate (
     template=template_dylan
 )
 
-# Dylan Prompting
-prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer."
+fs_template_modified = FewShotPromptTemplate (
+    examples=examples,
+    example_prompt=example_prompt,
+    suffix="""
+    You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer."
+
+Generate a coeherent response based off the following question using the above examples as formating reference. If the question cannot be answered with the information reply with 'Question cannot be answered.'
+    Question: {question}\n
+Please use information from the following context documents in the response and list the question IDs as sources in bullet points.
+    Context: {context}
+Also include the confience interval at the end of the answer.
+    Confidence Interval: {ci}
+    Answer:""",
+    input_variables=["question", "context", "ci"]
+)
 
 # Open AI Information
 openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
@@ -174,11 +191,10 @@ while True:
     #if query == "STOP":
     #    break
     
-    query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
-
+    query = "Does your company have an access control policy?"
     prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
 
-    prompt_question = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
+    prompt_question = "Does your company have an access control policy?"
 
     # Prompt context and score count
     total_score = 0
