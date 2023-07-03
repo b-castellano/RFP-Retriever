@@ -68,7 +68,7 @@ print("embeddings:", document_store.get_embedding_count())
 
 pipe = FAQPipeline(retriever=retriever)
 
-# FewShotPrompt Template
+# FewShotPrompt Template (WORST) --> To much information?
 examples = [
     {
     "question": "Does your company have an access control policy?",
@@ -114,7 +114,7 @@ Also include the confience interval at the end of the answer.
     input_variables=["question", "context", "ci"]
 )
 
-# Normal Template
+# Normal Template --> Too simple of answer, sometimes list confidence intervals, lists sources.
 template = """Give a coherent response to the question based on the context below then include the confidence score and question IDs. Fill in the required information in the empty spaces below.
 
 Question: {question}
@@ -132,7 +132,7 @@ gpt_template = PromptTemplate (
     template=template
 )
 
-# Simple Template
+# Simple Template --> Simple answer
 template_simple = """Give a coherent and thorough response to the question based on the context below.
 
 Question: {question}
@@ -147,6 +147,7 @@ gpt_template_simple = PromptTemplate (
     template=template_simple
 )
 
+# Dylan prefix tempalte (BEST) --> Outputs solid answer, lists sources, gives relatively accurate confidence interval.
 template_dylan = """"You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. 
 Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. 
 Use the answers within the context to formulate your response in under two hundred words. 
@@ -163,7 +164,7 @@ gpt_template_dylan = PromptTemplate (
     template=template_dylan
 )
 
-# Modified FewShotTemplate
+# Modified FewShotTemplate --> Issues with too much text.
 fs_template_modified = FewShotPromptTemplate (
     examples=examples,
     example_prompt=example_prompt,
@@ -245,7 +246,7 @@ while True:
     gpt_prompt_dylan = gpt_template_dylan.format(question=prompt_question, context=prompt_context)
     fs_prompt_modified = fs_template_modified.format(question=prompt_question, context=prompt_context)
 
-    full_prompt = gpt_prompt_dylan
+    full_prompt = gpt_prompt
 
     # AI Response Prompt
     print("PROMPT:\n=======================\n",full_prompt,"\n=======================\n")
@@ -277,7 +278,7 @@ while True:
         output = output.format(answer=gptResponse, ci=total_score, IDs=prompt_ids)
     print(output)
     
-    # Amount of question to run through
+    # Amount of questions to run through
     n += 1
-    if (n == 1):
+    if (n == 3):
         break
