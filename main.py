@@ -28,7 +28,7 @@ except:
     document_store = FAISSDocumentStore(
         similarity="cosine",
         embedding_dim=768,
-        duplicate_documents = 'overwrite'
+        duplicate_documents='overwrite'
     )
 
 '''
