@@ -146,6 +146,18 @@ gpt_template_simple = PromptTemplate (
     template=template_simple
 )
 
+template_dylan = """"You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer."
+
+Question: {question}
+
+Context: {context}
+"""
+
+gpt_template_dylan = PromptTemplate (
+    input_variables=["question", "context"],
+    template=template_dylan
+)
+
 # Dylan Prompting
 prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer."
 
@@ -177,7 +189,7 @@ while True:
         total_score += answer.score
         count += 1
 
-        prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"])
+        prompt_context += "Question ID: {ID}\n Content: {content}\n Confidence Score: {ci}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"], ci=answer.score)
         prompt_ids += "{ID}\n".format(ID=answer.meta["question ID"])
     total_score /= count
 
@@ -185,8 +197,9 @@ while True:
     fs_prompt = fs_template.format(question=prompt_question, context=prompt_context, ci=total_score)
     gpt_prompt = gpt_template.format(context=prompt_context, question=prompt_question,ci=total_score,ID=prompt_ids)
     gpt_prompt_simple = gpt_template_simple.format(question=prompt_question, context=prompt_context)
+    gpt_prompt_dylan = gpt_template_dylan.format(question=prompt_question, context=prompt_context)
 
-    full_prompt = gpt_prompt_simple
+    full_prompt = gpt_prompt_dylan
 
     # AI Response Prompt
     print("PROMPT:\n=======================\n",full_prompt,"\n=======================\n")
