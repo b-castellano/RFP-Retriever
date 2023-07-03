@@ -229,7 +229,12 @@ while True:
 
             total_score += answer.score
             count += 1
-    total_score /= count
+
+    # Check for no reliable answer
+    if count == 0:
+        total_score = 0
+    else:
+        total_score /= count
     print(f"{total_score}")
 
     print("Generating prompt...")
@@ -264,11 +269,15 @@ while True:
     Sources:
 {IDs}
     """
-
-    output = output.format(answer=gptResponse, ci=total_score, IDs=prompt_ids)
+    
+    # Check for no reliable answer
+    if (total_score == 0):
+        output = "No reliable answer."
+    else:
+        output = output.format(answer=gptResponse, ci=total_score, IDs=prompt_ids)
     print(output)
     
     # Amount of question to run through
-    if (n == 3):
-        break
     n += 1
+    if (n == 1):
+        break
