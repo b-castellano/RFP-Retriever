@@ -246,7 +246,7 @@ while True:
     gpt_prompt_dylan = gpt_template_dylan.format(question=prompt_question, context=prompt_context)
     fs_prompt_modified = fs_template_modified.format(question=prompt_question, context=prompt_context)
 
-    full_prompt = gpt_prompt
+    full_prompt = gpt_prompt_dylan
 
     # AI Response Prompt
     print("PROMPT:\n=======================\n",full_prompt,"\n=======================\n")
