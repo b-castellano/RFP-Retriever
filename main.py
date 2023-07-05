@@ -77,8 +77,16 @@ def create_prompt(query, prediction):
     # Provide instructions/prefix
     prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions 
     in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 
-    'question ID, confidence score, and answer'. Use the answers within the context to formulate a concise response. In addition, list 
-    the referenced question IDs of the answers you referenced at the end of your response in the form of a list."""
+    'question ID, confidence score, and answer'. You will answer the question in the form of a JSON like this:
+    
+    { 
+    "response": …, 
+    "sources": …
+    } 
+
+    The "response" value should be a string consisting of a concise response to the question. The "sources" value should 
+    be a list of the Quesion ID's of the answers you referenced in your response, in the form of a list.
+    """
 
     # Create context
     context = ""
