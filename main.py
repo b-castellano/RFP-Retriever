@@ -1,3 +1,4 @@
+# General
 import warnings
 from tqdm.auto import tqdm  # progress bar
 from datasets import load_dataset
@@ -7,12 +8,14 @@ import openai
 import os
 import random
 
+# Haystack
 from haystack.document_stores import FAISSDocumentStore
 from haystack.nodes import EmbeddingRetriever
 from haystack import Document
 from haystack.pipelines import FAQPipeline
 from haystack.utils import print_answers
 
+# Langchain
 import langchain
 from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
@@ -21,53 +24,7 @@ from langchain.prompts.few_shot import FewShotPromptTemplate
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-loaded = False
-try:
-    document_store = FAISSDocumentStore.load(index_path="my_faiss_index.faiss")
-    loaded = True
-except:
-    document_store = FAISSDocumentStore(
-        similarity="cosine",
-        embedding_dim=768,
-        duplicate_documents='overwrite'
-    )
-
-'''
-print(document_store.metric_type)              # should output "cosine"
-print(document_store.get_document_count())     # should output "0"
-print(document_store.get_embedding_count())    # should output "0"
-'''
-
-retriever = EmbeddingRetriever(
-    document_store=document_store,
-    embedding_model="flax-sentence-embeddings/all_datasets_v3_mpnet-base",
-    model_format="sentence_transformers"
-)
-
-if not loaded:
-    # Get dataframe with columns "question", "answer" and some custom metadata
-    df = pd.read_csv("qna.csv")
-    df.fillna(value="", inplace=True)
-
-    # Create embeddings for our questions from the FAQs
-    questions = list(df["question"].values)
-    print("questions:", len(questions))
-    df["embedding"] = retriever.embed_queries(queries=questions).tolist()
-    df = df.rename(columns={"question": "content"})
-
-    # Convert Dataframe to list of dicts and index them in our DocumentStore
-    docs_to_index = df.to_dict(orient="records")
-    print("dictionaries:", len(docs_to_index))
-    document_store.write_documents(docs_to_index)
-    document_store.update_embeddings(retriever)
-
-    document_store.save(index_path="my_faiss_index.faiss")
-
-print("docs:", document_store.get_document_count())
-print("embeddings:", document_store.get_embedding_count())
-
-pipe = FAQPipeline(retriever=retriever)
-
+## TEMPLATE STORAGE
 # FewShotPrompt Template (WORST) --> To much information?
 examples = [
     {
@@ -183,101 +140,135 @@ fs_template_modified = FewShotPromptTemplate (
     input_variables=["question", "context"]
 )
 
-# Open AI Information
-openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
-openai.api_type = "azure"
-openai.api_version = "2023-05-15"
-openai.api_base = "https://immerse.openai.azure.com/"
-deployment_name='immerse-3-5'
+# Initiate Datastore
+def init_store():
+    loaded = False
+    try:
+        return FAISSDocumentStore.load(index_path="my_faiss_index.faiss"), True
+        
+    except:
+        return FAISSDocumentStore(
+            similarity="cosine",
+            embedding_dim=768,
+            duplicate_documents='overwrite'
+        ), False
 
-# Manual Question Storage
-questions = [
-"Does your company have an access control policy?",
-"Is company information backed up regularly?",
-"Do your security policies require standard encryption solutions and protocols?",
-"Does your company monitor for unauthorized actions?"
-]
-n = 0
+def init_retriever(document_store):
+    return EmbeddingRetriever(
+        document_store=document_store,
+        embedding_model="flax-sentence-embeddings/all_datasets_v3_mpnet-base",
+        model_format="sentence_transformers"
+    )
 
-while True:
-
-    #query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
-    #if query == "STOP":
-    #    break
-
-    # Get n questions for mass testing
-    '''
+def write_docs(document_store, retriever):
+    # Get dataframe with columns "question", "answer" and some custom metadata
     df = pd.read_csv("qna.csv")
-    max = len(list(df["question"].values))
-    i = random.randint(0, max+1)
-    query = df["question"].values[i]
-    '''
+    df.fillna(value="", inplace=True)
 
-    df = pd.read_csv("qna.csv")
-    query = df["question"].values[n]
-    prediction = pipe.run(query=query, params={"Retriever": {"top_k": 4}})
-    prompt_question = query
+    # Create embeddings for our questions from the FAQs
+    questions = list(df["question"].values)
+    print("questions:", len(questions))
+    df["embedding"] = retriever.embed_queries(queries=questions).tolist()
+    df = df.rename(columns={"question": "content"})
 
-    # Prompt context and score count
-    total_score = 0
-    count = 0
+    # Convert Dataframe to list of dicts and index them in our DocumentStore
+    docs_to_index = df.to_dict(orient="records")
+    print("dictionaries:", len(docs_to_index))
+    document_store.write_documents(docs_to_index)
+    document_store.update_embeddings(retriever)
+
+    document_store.save(index_path="my_faiss_index.faiss")
+    print("docs added:", document_store.get_document_count())
+    print("docs embedded:", document_store.get_embedding_count())
+
+def init_pipe(retriever):
+    return FAQPipeline(retriever=retriever)
+
+def query_faiss(query, pipe):
+    return pipe.run(query=query, params={"Retriever": {"top_k": 4}})
+
+# Create prompt template
+def create_prompt(query, prediction):
+    prompt = gpt_template_dylan
+
+    # Create context
     prompt_context = ""
     prompt_ids = ""
+    avgscore = 0
+    count = 0
     for answer in prediction["answers"]:
         prompt_context += "Question ID: {ID}\n Content: {content}\n Confidence Score: {ci}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"], ci=answer.score)
         prompt_ids += "{ID}\n".format(ID=answer.meta["question ID"])
 
-        total_score += answer.score
+        avgscore += answer.score
         count += 1
-
-    # Check for no reliable answer
-    if count == 0:
-        total_score = 0
-    else:
-        total_score /= count
-    print(f"{total_score}")
+    avgscore /= count
+    print(avgscore)
 
     print("Generating prompt...")
-    # Prompt Storage
-    fs_prompt = fs_template.format(question=prompt_question, context=prompt_context, ci=total_score)
-    gpt_prompt = gpt_template.format(context=prompt_context, question=prompt_question,ci=total_score,ID=prompt_ids)
-    gpt_prompt_simple = gpt_template_simple.format(question=prompt_question, context=prompt_context)
-    gpt_prompt_dylan = gpt_template_dylan.format(question=prompt_question, context=prompt_context)
-    fs_prompt_modified = fs_template_modified.format(question=prompt_question, context=prompt_context)
+    return prompt.format(question=query, context=prompt_context)
 
-    full_prompt = gpt_prompt_dylan
-
-    # AI Response Prompt
-    print("PROMPT:\n=======================\n",full_prompt,"\n=======================\n")
+def init_gpt():
+    openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
+    openai.api_type = "azure"
+    openai.api_version = "2023-05-15"
+    openai.api_base = "https://immerse.openai.azure.com/"
+    
+# Call openai API
+def call_gpt(prompt):
+    deployment_name = 'immerse-3-5'
     response = openai.Completion.create(
         engine=deployment_name,
-        prompt=(full_prompt),
+        prompt=(prompt),
         max_tokens=1000,
         n=1,
         top_p=0.7,
         temperature=0.3,
-        frequency_penalty= 0.5,
-        presence_penalty= 0.2
+        frequency_penalty=0.5,
+        presence_penalty=0.2
     )
-    gptResponse = response.choices[0].text.split('\n')[0]
-    print("OUTPUT:\n=======================\n",gptResponse,"\n=======================\n")
+    return response.choices[0].text.split('\n')[0]
 
-    # Comparision Output
-    output = """
-    {answer}
-    Confidence Score: {ci}
-    Sources:
-{IDs}
-    """
+'''
+def compute_average(used_docs):
+    avgscore = 0
+    count = 0
+    for doc in used_docs:
+        avgscore += doc.score
+        count+=1
+    avgscore /= count
+    avgscore *= 100
+    return avgscore
+'''
+
+def main():
+
+    #Initialize 
+    document_store, loaded = init_store()
+
+    retriever = init_retriever(document_store)
     
-    # Check for no reliable answer
-    if (total_score == 0):
-        output = "No reliable answer."
-    else:
-        output = output.format(answer=gptResponse, ci=total_score, IDs=prompt_ids)
-    print(output)
+    if not loaded:
+        write_docs(document_store, retriever)
+
+    print("docs:", document_store.get_document_count())
+    print("embeddings:", document_store.get_embedding_count())
+
+    pipe = init_pipe(retriever)
+
+    init_gpt()
     
-    # Amount of questions to run through
-    n += 1
-    if (n == 3):
-        break
+    while True:
+        query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
+        if query == "STOP":
+            break
+
+        prediction = query_faiss(query, pipe)
+    
+        prompt = create_prompt(query, prediction)
+
+        gpt_output = call_gpt(prompt)
+
+        print(gpt_output)
+
+main()
