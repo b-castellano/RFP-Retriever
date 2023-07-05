@@ -77,11 +77,7 @@ prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                         template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
 # Provide instructions/prefix
-prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in 
-a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 
-'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words.
-At the end, list the referenced question IDs of the answers you referenced for your response. Lastly, provide the average confidence score of 
- the answers in percentage form."""
+prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question IDs of the answers you referenced at the end of your response."
 
 # Create context
 context = ""
