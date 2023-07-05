@@ -84,13 +84,11 @@ context = ""
 avgscore = 0
 count = 0
 for answer in prediction["answers"]:
-    if (answer.score > .7):
-        context += "Question ID: {ID}, Content: {content}\n".format(
-            ID=answer.meta["question ID"], content=answer.meta["answer"])
-        avgscore += answer.score
-        count+=1
-avgscore /= count   # convert total score to avg
-avgscore *= 100      # convert from decimal to percentage
+    context += "Question ID: {ID}, Confidence Score: {score}, Content: {content}\n".format(
+        ID=answer.meta["question ID"], score = answer.score, content=answer.meta["answer"])
+
+
+
 
 # Generate Prompt
 print("Generating prompt...")
