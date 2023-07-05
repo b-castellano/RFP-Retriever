@@ -66,7 +66,7 @@ def query_faiss(query, pipe):
     # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
     # if query == "STOP":
     #     break
-    return pipe.run(query=query, params={"Retriever": {"top_k": 4}})
+    return pipe.run(query=query, params={"Retriever": {"top_k": 3}})
 
 # Create prompt template
 def create_prompt(query, prediction):
@@ -74,21 +74,21 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question IDs of the answers you referenced at the end of your response."
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions 
+    in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 
+    'question ID, confidence score, and answer'. Use the answers within the context to formulate a concise response. In addition, list 
+    the referenced question IDs of the answers you referenced at the end of your response."""
 
     # Create context
     context = ""
-    avgscore = 0
-    count = 0
     for answer in prediction["answers"]:
-        # Remove docs 
-        if (answer.score > .7):
-            context += "Question ID: {ID}, Content: {content}\n".format(
-                ID=answer.meta["question ID"], content=answer.meta["answer"])
 
+        # Remove docs 
+        context += "Question ID: {ID}, Content: {content}\n".format(
+            ID=answer.meta["question ID"], content=answer.meta["answer"])
     # Generate Prompt
     print("Generating prompt...")
-    print("PROMPT:", prompt)
+    print("PROMPT:", prompt.format(prefix=prefix, question=query, context=context))
     return prompt.format(prefix=prefix, question=query, context=context)
     
 
@@ -110,7 +110,7 @@ def call_gpt(prompt):
         prompt=(f"Question: {prompt}\n"
                 "Answer:"
                 ),
-        max_tokens=200,
+        max_tokens=500,
         n=1,
         top_p=0.7,
         temperature=0.3,
