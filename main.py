@@ -77,15 +77,17 @@ prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                         template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
 # Provide instructions/prefix
-prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words. In addition, list the referenced question IDs and total average confidence score of the answers you referenced at the end of your response."
+prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in 
+a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 
+'question ID, confidence score, and answer'. Use the answers within the context to formulate your response in under two hundred words.
+At the end, list the referenced question IDs of the answers you referenced for your response. Lastly, provide the average confidence score of 
+ the answers in percentage form."""
 
 # Create context
 context = ""
-avgscore = 0
-count = 0
 for answer in prediction["answers"]:
-    context += "Question ID: {ID}, Confidence Score: {score}, Content: {content}\n".format(
-        ID=answer.meta["question ID"], score = answer.score, content=answer.meta["answer"])
+    context += "Question ID: {ID}, Confidence Score: {score}, Answer: {answer}\n".format(
+        ID=answer.meta["question ID"], score = answer.score, answer=answer.meta["answer"])
 
 # Generate Prompt
 print("Generating prompt...")
@@ -98,7 +100,7 @@ response = openai.Completion.create(
     prompt=(f"Question: {prompt}\n"
             "Answer:"
             ),
-    max_tokens=300,
+    max_tokens=1000,
     n=1,
     top_p=0.7,
     temperature=0.3,
