@@ -3,6 +3,7 @@ from datasets import load_dataset
 import torch
 import openai
 import traceback
+import re
 
 from haystack.nodes import EmbeddingRetriever
 from haystack import Document
@@ -81,15 +82,20 @@ def create_prompt(query, prediction):
 
     # Create context
     context = ""
+    scores = {}
     for answer in prediction["answers"]:
 
         # Remove docs 
         context += "Question ID: {ID}, Content: {content}\n".format(
             ID=answer.meta["question ID"], content=answer.meta["answer"])
+        
+        # Add ID-Score pair to dict
+        scores[answer.meta["question ID"]] = answer.score
     # Generate Prompt
     print("Generating prompt...")
     print("PROMPT:", prompt.format(prefix=prefix, question=query, context=context))
-    return prompt.format(prefix=prefix, question=query, context=context)
+    
+    return prompt.format(prefix=prefix, question=query, context=context), scores
     
 
 
@@ -102,7 +108,7 @@ def init_gpt():
     
 
 # Call openai API
-def call_gpt(prompt):
+def call_gpt(prompt,scores):
 
     deployment_name = 'immerse-3-5'
     response = openai.Completion.create(
@@ -117,22 +123,31 @@ def call_gpt(prompt):
         frequency_penalty=0.5,
         presence_penalty=0.2
     )
+    output = response.choices[0].text.split('\n')[0]
+    print(output)
+    res = re.search("\[(.*)\]", output)
+    if res is None:
+        raise Exception("Error getting QID's")
+    ids = re.split(",", res.group(1))
+    print(ids)
+    confidence = compute_average(ids,scores)
 
-    return response.choices[0].text.split('\n')[0]
+    output = output[ 0 : output.index("[")]
+    output += f"\nConfidence Score: {confidence:.2f}%"
 
-def compute_average(used_docs):
+    return output
 
-    avgscore = 0
-    count = 0
+def compute_average(ids, scores):
 
-    for doc in used_docs:
+    total = 0
 
-        # Remove docs 
-        avgscore += doc.score
-        count+=1
+    for id in ids:
 
-    avgscore /= count   # convert total score to avg
-    avgscore *= 100     # convert from decimal to percentage
+        id = id.strip()
+        total += scores[id]
+
+    avgscore = total / len(ids)     # convert total score to avg
+    avgscore *= 100                 # convert from decimal to percentage
 
     return avgscore
 
@@ -141,7 +156,7 @@ def main():
 
     try:
         # User's question
-        query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
+        query = "Are any of your services subcontracted? If yes, please explain in detail."
 
         # Initialize document store
         document_store, loaded = init_store()
@@ -160,13 +175,13 @@ def main():
         prediction = query_faiss(query, pipe)
         
         # Generate prompt from related docs
-        prompt = create_prompt(query, prediction)
+        prompt,scores = create_prompt(query, prediction)
 
         # Initialize gpt-3
         init_gpt()
 
         # Feed prompt into gpt
-        output = call_gpt(prompt)
+        output = call_gpt(prompt, scores)
 
         print(f"OUTPUT:\n======================={output}")
 
