@@ -20,6 +20,7 @@ from haystack.utils import print_answers
 import langchain
 from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
+from langchain.output_parsers import CommaSeparatedListOutputParser
 
 # Warning filter
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
@@ -115,6 +116,8 @@ Question: {question}
 Context: {context}
 """
 
+output_parser = CommaSeparatedListOutputParser()
+format_instructions = output_parser.get_format_instructions()
 gpt_template_dylan = PromptTemplate (
     input_variables=["question", "context"],
     template=template_dylan
