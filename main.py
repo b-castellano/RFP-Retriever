@@ -7,6 +7,7 @@ import torch
 import openai
 import os
 import random
+import re
 
 # Haystack
 from haystack.document_stores import FAISSDocumentStore
@@ -107,10 +108,8 @@ gpt_template_simple = PromptTemplate (
 # Dylan prefix tempalte (BEST) --> Outputs solid answer, lists sources, gives relatively accurate confidence interval.
 template_dylan = """"You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. 
 Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. 
-Use the answers within the context to formulate your response in under two hundred words. 
-In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer.
-Include the average confidence score of the referenced context portions at the end of your answer."
-
+Use the answers within the context to formulate a concise response. 
+At the end of the response give the referenced question IDs in the form of a list."
 Question: {question}
 
 Context: {context}
@@ -129,10 +128,8 @@ fs_template_modified = FewShotPromptTemplate (
     You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner.
     Use the examples above as a reference for formating.
     Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'.
-    Use the answers within the context to formulate your response in under two hundred words. 
-    In addition, list the referenced question ID in parenthesis after the portion of your response using the associated answer.
-    Include the average confidence score of the referenced context portions at the end of your answer."
-
+    Use the answers within the context to formulate a concise response. 
+    At the end of the response give the referenced question IDs in the form of a list as well as the average confidence score for the referenced context portions."
     Question: {question}
 
     Context: {context}
@@ -140,7 +137,7 @@ fs_template_modified = FewShotPromptTemplate (
     input_variables=["question", "context"]
 )
 
-# Initiate Datastore
+
 def init_store():
     loaded = False
     try:
@@ -187,9 +184,9 @@ def init_pipe(retriever):
 def query_faiss(query, pipe):
     return pipe.run(query=query, params={"Retriever": {"top_k": 4}})
 
-# Create prompt template
 def create_prompt(query, prediction):
     prompt = gpt_template_dylan
+    IDs = {}
 
     # Create context
     prompt_context = ""
@@ -197,16 +194,18 @@ def create_prompt(query, prediction):
     avgscore = 0
     count = 0
     for answer in prediction["answers"]:
-        prompt_context += "Question ID: {ID}\n Content: {content}\n Confidence Score: {ci}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"], ci=answer.score)
-        prompt_ids += "{ID}\n".format(ID=answer.meta["question ID"])
+        id = answer.meta["question ID"]
+        score = answer.score
+        prompt_context += "Question ID: {ID}\n Content: {content}\n Confidence Score: {ci}\n".format(ID=id, content=answer.meta["answer"], ci=score)
+        prompt_ids += "{ID}\n".format(ID=id)
 
+        IDs[id] = score
         avgscore += answer.score
         count += 1
     avgscore /= count
-    print(avgscore)
 
     print("Generating prompt...")
-    return prompt.format(question=query, context=prompt_context)
+    return prompt.format(question=query, context=prompt_context), IDs
 
 def init_gpt():
     openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
@@ -214,13 +213,12 @@ def init_gpt():
     openai.api_version = "2023-05-15"
     openai.api_base = "https://immerse.openai.azure.com/"
     
-# Call openai API
 def call_gpt(prompt):
     deployment_name = 'immerse-3-5'
     response = openai.Completion.create(
         engine=deployment_name,
         prompt=(prompt),
-        max_tokens=1000,
+        max_tokens=2000,
         n=1,
         top_p=0.7,
         temperature=0.3,
@@ -229,46 +227,59 @@ def call_gpt(prompt):
     )
     return response.choices[0].text.split('\n')[0]
 
-'''
-def compute_average(used_docs):
+def compute_average(gpt, dict):
     avgscore = 0
-    count = 0
-    for doc in used_docs:
-        avgscore += doc.score
-        count+=1
-    avgscore /= count
-    avgscore *= 100
+    try:
+        txt = re.search("\[(.*)\]", gpt)
+        txt_split = re.split(",\s?", txt.group(1))
+        count = 0
+        for word in txt_split:
+            avgscore += dict[word]
+            count += 1
+        avgscore /= count
+    except:
+        print("Cannot Find")
     return avgscore
-'''
+
 
 def main():
 
-    #Initialize 
+    # Initialize document store
     document_store, loaded = init_store()
 
+    # Initialize retriever
     retriever = init_retriever(document_store)
     
+    # Check if docs are stored
     if not loaded:
         write_docs(document_store, retriever)
 
-    print("docs:", document_store.get_document_count())
-    print("embeddings:", document_store.get_embedding_count())
-
+    # Initialize pipeline
     pipe = init_pipe(retriever)
 
+    # Initialize gpt bot
     init_gpt()
-    
+
     while True:
         query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
         if query == "STOP":
             break
 
-        prediction = query_faiss(query, pipe)
-    
-        prompt = create_prompt(query, prediction)
+        # good_query = "Please describe how you secure data at rest."
 
+        # Get relavant answers from database
+        prediction = query_faiss(query, pipe)
+
+        # Construct the prompt and dictionary
+        prompt, dict = create_prompt(query, prediction)
+
+        # Get gpt output for prompt
         gpt_output = call_gpt(prompt)
 
-        print(gpt_output)
+        # Get avaerage confidence interval for relavant answers
+        avgscore = compute_average(gpt_output, dict)
 
-main()
+        print(f"Output: {gpt_output}\n Score: {avgscore}")
+
+if __name__ == "__main__": 
+    main()
