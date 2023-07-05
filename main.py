@@ -139,28 +139,38 @@ def main():
 
     try:
 
+        # Initialize document store
         document_store, loaded = init_store()
     
+        # Initialize retriever
         retriever = init_retriever(document_store)
 
+        # If new store, add documents and embeddings
         if not loaded:
             write_docs(document_store, retriever)
         
+        # Initialize pipeline for document search
         pipe = init_pipe(retriever)
-     
+
+
         query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
 
+        # Query database
         prediction = query_faiss(query,pipe)
         
+        # Generate prompt from related docs
         prompt = create_prompt(query,prediction)
 
+        # Initialize gpt-3
         init_gpt()
 
+        # Feed prompt into gpt
         output = call_gpt(prompt)
 
-        
         print(f"OUTPUT:\n======================={output}")
+
     except:
+        
         print("Error initializing var")
         traceback.print_exc()
 
