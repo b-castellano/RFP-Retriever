@@ -224,12 +224,11 @@ while True:
     prompt_context = ""
     prompt_ids = ""
     for answer in prediction["answers"]:
-        if (answer.score > 0.7):
-            prompt_context += "Question ID: {ID}\n Content: {content}\n Confidence Score: {ci}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"], ci=answer.score)
-            prompt_ids += "{ID}\n".format(ID=answer.meta["question ID"])
+        prompt_context += "Question ID: {ID}\n Content: {content}\n Confidence Score: {ci}\n".format(ID=answer.meta["question ID"], content=answer.meta["answer"], ci=answer.score)
+        prompt_ids += "{ID}\n".format(ID=answer.meta["question ID"])
 
-            total_score += answer.score
-            count += 1
+        total_score += answer.score
+        count += 1
 
     # Check for no reliable answer
     if count == 0:
