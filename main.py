@@ -15,7 +15,7 @@ import langchain
 from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
 
-loaded = False
+
 def init_store():
     try:
 
@@ -126,11 +126,13 @@ def compute_average(used_docs):
     count = 0
 
     for doc in used_docs:
+
         # Remove docs 
         avgscore += doc.score
         count+=1
+
     avgscore /= count   # convert total score to avg
-    avgscore *= 100      # convert from decimal to percentage
+    avgscore *= 100     # convert from decimal to percentage
 
     return avgscore
 
@@ -138,6 +140,8 @@ def compute_average(used_docs):
 def main():
 
     try:
+        # User's question
+        query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
 
         # Initialize document store
         document_store, loaded = init_store()
@@ -152,14 +156,11 @@ def main():
         # Initialize pipeline for document search
         pipe = init_pipe(retriever)
 
-
-        query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
-
         # Query database
-        prediction = query_faiss(query,pipe)
+        prediction = query_faiss(query, pipe)
         
         # Generate prompt from related docs
-        prompt = create_prompt(query,prediction)
+        prompt = create_prompt(query, prediction)
 
         # Initialize gpt-3
         init_gpt()
