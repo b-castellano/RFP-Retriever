@@ -58,7 +58,7 @@ def write_docs(document_store, retriever):
 
 
 def init_pipe(retriever):
-    pipe = FAQPipeline(retriever=retriever)
+    return FAQPipeline(retriever=retriever)
 
 
 def query_faiss(query, pipe):
@@ -88,8 +88,9 @@ def create_prompt(query, prediction):
 
     # Generate Prompt
     print("Generating prompt...")
-    return prompt.format(prefix=prefix, question=query, context=context)
     print("PROMPT:", prompt)
+    return prompt.format(prefix=prefix, question=query, context=context)
+    
 
 
 def init_gpt():
@@ -109,7 +110,7 @@ def call_gpt(prompt):
         prompt=(f"Question: {prompt}\n"
                 "Answer:"
                 ),
-        max_tokens=300,
+        max_tokens=200,
         n=1,
         top_p=0.7,
         temperature=0.3,
@@ -120,14 +121,17 @@ def call_gpt(prompt):
     return response.choices[0].text.split('\n')[0]
 
 def compute_average(used_docs):
+
     avgscore = 0
     count = 0
+
     for doc in used_docs:
         # Remove docs 
         avgscore += doc.score
         count+=1
     avgscore /= count   # convert total score to avg
     avgscore *= 100      # convert from decimal to percentage
+
     return avgscore
 
 
@@ -143,7 +147,7 @@ def main():
             write_docs(document_store, retriever)
         
         pipe = init_pipe(retriever)
-
+     
         query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
 
         prediction = query_faiss(query,pipe)
@@ -158,5 +162,6 @@ def main():
         print(f"OUTPUT:\n======================={output}")
     except:
         print("Error initializing var")
+        traceback.print_exc()
 
 main()
