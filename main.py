@@ -77,7 +77,7 @@ def create_prompt(query, prediction):
     prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions 
     in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 
     'question ID, confidence score, and answer'. Use the answers within the context to formulate a concise response. In addition, list 
-    the referenced question IDs of the answers you referenced at the end of your response."""
+    the referenced question IDs of the answers you referenced at the end of your response in the form of a list."""
 
     # Create context
     context = ""
@@ -175,4 +175,5 @@ def main():
         print("Error initializing var")
         traceback.print_exc()
 
-main()
+if __name__ == "__main__":
+    main()
