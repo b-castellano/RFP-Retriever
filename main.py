@@ -87,9 +87,6 @@ for answer in prediction["answers"]:
     context += "Question ID: {ID}, Confidence Score: {score}, Content: {content}\n".format(
         ID=answer.meta["question ID"], score = answer.score, content=answer.meta["answer"])
 
-
-
-
 # Generate Prompt
 print("Generating prompt...")
 prompt = prompt.format(prefix=prefix, question=query, context=context)
