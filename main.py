@@ -1,9 +1,8 @@
-from asyncio.windows_events import NULL
 import pandas as pd
 from datasets import load_dataset
 import torch
 import openai
-from tqdm.auto import tqdm  # progress bar
+import traceback
 
 from haystack.nodes import EmbeddingRetriever
 from haystack import Document
@@ -11,22 +10,23 @@ from haystack.document_stores import FAISSDocumentStore
 from haystack.pipelines import FAQPipeline
 from haystack.utils import print_answers
 
+
 import langchain
 from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
 
-
+loaded = False
 def init_store():
     try:
-        loaded = True
-        return FAISSDocumentStore.load(index_path="my_faiss_index.faiss")
+
+        return FAISSDocumentStore.load(index_path="my_faiss_index.faiss"), True
         
     except:
         return FAISSDocumentStore(
             similarity="cosine",
             embedding_dim=768,
             duplicate_documents='overwrite'
-        )
+        ), False
 
 def init_retriever(document_store):
     return EmbeddingRetriever(
@@ -133,38 +133,30 @@ def compute_average(used_docs):
 
 def main():
 
-    loaded = False
-    document_store = init_store()
+    try:
 
-    retriever = init_retriever()
+        document_store, loaded = init_store()
     
-    if not loaded:
-        write_docs(document_store, retriever)
-    
-    pipe = init_pipe()
+        retriever = init_retriever(document_store)
 
-    query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
+        if not loaded:
+            write_docs(document_store, retriever)
+        
+        pipe = init_pipe(retriever)
 
-    prediction = query_faiss(query,pipe)
-    
-    prompt = create_prompt(query,prediction)
+        query = "Has your organization implemented data loss prevention (DLP) to detect potential unauthorized access, use, or disclosure of client data?"
 
+        prediction = query_faiss(query,pipe)
+        
+        prompt = create_prompt(query,prediction)
 
-    
+        init_gpt()
 
+        output = call_gpt(prompt)
 
+        
+        print(f"OUTPUT:\n======================={output}")
+    except:
+        print("Error initializing var")
 
-
-
-
-
-   
-
-
-
-    
-    
-    
-    
-    
-    print(f"OUTPUT:\n======================={gptResponse}\nConfidence score: {avgscore}%\n=======================")
+main()
