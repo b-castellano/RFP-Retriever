@@ -107,20 +107,62 @@ gpt_template_simple = PromptTemplate (
 )
 
 # Dylan prefix tempalte (BEST) --> Outputs solid answer, lists sources, gives relatively accurate confidence interval.
-template_dylan = """"You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. 
+template_dylan = """"You need to include referenced question IDs at the end of the answer. You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. 
+Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. 
+Use the answers within the context to formulate a concise response.
+You must add at the end of the response the referenced question IDs in the form of a list."
+
+Question: {question}
+
+Context: {context}
+"""
+
+gpt_template_dylan = PromptTemplate (
+    input_variables=["question", "context"],
+    template=template_dylan
+)
+
+# JSON Template ---> Does not work at all
+template_json = """"You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. 
+Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. 
+Use the answers within the context to formulate a concise response.
+You must add at the end of the response the referenced question IDs in the form of a list."
+
+Question: {question}
+
+Context: {context}
+
+Answer in a JSON like this:
+"Answer": ...,
+"Sources": ...
+"""
+
+gpt_template_json = PromptTemplate (
+    input_variables=["question", "context"],
+    template=template_json
+)
+
+
+# Output Parser Template -> Only lists sources
+output_parser = CommaSeparatedListOutputParser()
+format_instructions = output_parser.get_format_instructions()
+
+list_template = """"You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. 
 Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. 
 Use the answers within the context to formulate a concise response. 
 At the end of the response give the referenced question IDs in the form of a list."
 Question: {question}
 
 Context: {context}
+
+Make a list of the referenced question IDs
+List:\n {format_instructions}
 """
 
-output_parser = CommaSeparatedListOutputParser()
-format_instructions = output_parser.get_format_instructions()
-gpt_template_dylan = PromptTemplate (
+gpt_list_template = PromptTemplate (
     input_variables=["question", "context"],
-    template=template_dylan
+    template=list_template,
+    partial_variables={"format_instructions": format_instructions}
 )
 
 # Modified FewShotTemplate --> Issues with too much text.
@@ -142,10 +184,8 @@ fs_template_modified = FewShotPromptTemplate (
 
 
 def init_store():
-    loaded = False
     try:
         return FAISSDocumentStore.load(index_path="my_faiss_index.faiss"), True
-        
     except:
         return FAISSDocumentStore(
             similarity="cosine",
@@ -221,7 +261,7 @@ def call_gpt(prompt):
     response = openai.Completion.create(
         engine=deployment_name,
         prompt=(prompt),
-        max_tokens=2000,
+        max_tokens=3000,
         n=1,
         top_p=0.7,
         temperature=0.3,
@@ -246,8 +286,8 @@ def compute_average(gpt, dict):
 
 
 def main():
-
     # Initialize document store
+    loaded = False
     document_store, loaded = init_store()
 
     # Initialize retriever
@@ -264,25 +304,32 @@ def main():
     init_gpt()
 
     while True:
-        query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
-        if query == "STOP":
-            break
+        #query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
+        #if query == "STOP":
+        #    break
 
         # good_query = "Please describe how you secure data at rest."
+        for n in range(1):
+            #df = pd.read_csv("qna.csv")
+            #query = df["question"][n]
+            #print(query)
 
-        # Get relavant answers from database
-        prediction = query_faiss(query, pipe)
+            query = "Are encryption keys managed and maintained?"
 
-        # Construct the prompt and dictionary
-        prompt, dict = create_prompt(query, prediction)
+            # Get relavant answers from database
+            prediction = query_faiss(query, pipe)
 
-        # Get gpt output for prompt
-        gpt_output = call_gpt(prompt)
+            # Construct the prompt and dictionary
+            prompt, dict = create_prompt(query, prediction)
 
-        # Get avaerage confidence interval for relavant answers
-        avgscore = compute_average(gpt_output, dict)
+            # Get gpt output for prompt
+            gpt_output = call_gpt(prompt)
 
-        print(f"Output: {gpt_output}\n Score: {avgscore}")
+            # Get avaerage confidence interval for relavant answers
+            avgscore = compute_average(gpt_output, dict)
+
+            print(f"Output: {gpt_output}\n Score: {avgscore}")
+        break
 
 if __name__ == "__main__": 
     main()
