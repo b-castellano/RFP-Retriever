@@ -107,11 +107,10 @@ gpt_template_simple = PromptTemplate (
 )
 
 # Dylan prefix tempalte (BEST) --> Outputs solid answer, lists sources, gives relatively accurate confidence interval.
-template_dylan = """"You need to include referenced question IDs at the end of the answer. You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. 
-Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'. 
+template_dylan = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner.
+Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID and answer'.
 Use the answers within the context to formulate a concise response.
-You must add at the end of the response the referenced question IDs in the form of a list."
-
+List the question IDs of the answers you referenced at the end of your response in this form: [...,...]"
 Question: {question}
 
 Context: {context}
@@ -173,15 +172,15 @@ fs_template_modified = FewShotPromptTemplate (
     You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner.
     Use the examples above as a reference for formating.
     Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, confidence score, and answer'.
-    Use the answers within the context to formulate a concise response. 
-    At the end of the response give the referenced question IDs in the form of a list as well as the average confidence score for the referenced context portions."
+    Use the answers within the context to formulate a concise response.
+    At the end of the response give the referenced question IDs in the form of a list as well as the average confidence score for the referenced context portions.
+    "
     Question: {question}
 
     Context: {context}
     """,
     input_variables=["question", "context"]
 )
-
 
 def init_store():
     try:
@@ -238,8 +237,9 @@ def create_prompt(query, prediction):
     count = 0
     for answer in prediction["answers"]:
         id = answer.meta["question ID"]
+        prompt_context = re.sub("[\[\]']","",answer.meta["answer"])
         score = answer.score
-        prompt_context += "Question ID: {ID}\n Content: {content}\n Confidence Score: {ci}\n".format(ID=id, content=answer.meta["answer"], ci=score)
+        prompt_context += "Question ID: {ID}\n Content: {content}\n".format(ID=id, content=prompt_context)
         prompt_ids += "{ID}\n".format(ID=id)
 
         IDs[id] = score
@@ -253,7 +253,7 @@ def create_prompt(query, prediction):
 def init_gpt():
     openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
     openai.api_type = "azure"
-    openai.api_version = "2023-05-15"
+    openai.api_version = "2023-06-01-preview"
     openai.api_base = "https://immerse.openai.azure.com/"
     
 def call_gpt(prompt):
@@ -261,7 +261,7 @@ def call_gpt(prompt):
     response = openai.Completion.create(
         engine=deployment_name,
         prompt=(prompt),
-        max_tokens=3000,
+        max_tokens=1000,
         n=1,
         top_p=0.7,
         temperature=0.3,
@@ -283,7 +283,6 @@ def compute_average(gpt, dict):
     except:
         print("Cannot Find")
     return avgscore
-
 
 def main():
     # Initialize document store
@@ -309,12 +308,13 @@ def main():
         #    break
 
         # good_query = "Please describe how you secure data at rest."
-        for n in range(1):
-            #df = pd.read_csv("qna.csv")
-            #query = df["question"][n]
-            #print(query)
+        # bad_query = "Are encryption keys managed and maintained?"
+        for n in range(10):
+            df = pd.read_csv("qna.csv")
+            query = df["question"][n]
+            print(query)
 
-            query = "Are encryption keys managed and maintained?"
+            #query = "Are encryption keys managed and maintained?"
 
             # Get relavant answers from database
             prediction = query_faiss(query, pipe)
