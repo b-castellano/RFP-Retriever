@@ -75,10 +75,7 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions " 
-    "in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of " 
-    "'question ID, confidence score, and answer'. Use the answers within the context to formulate a concise response. In addition, list " 
-    "the question IDs of the context answers you referenced at the end of your response in the form of a list."
+    prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a concise response. In addition, list the referenced question IDs of the answers you referenced at the end of your response."
 
     # Create context
     context = ""
@@ -86,8 +83,8 @@ def create_prompt(query, prediction):
     for answer in prediction["answers"]:
 
         # Remove docs 
-        context += "Question ID: {ID}, Answer: {answer}\n".format(
-            ID=answer.meta["question ID"], answer=answer.meta["answer"])
+        context += "Question ID: {ID}, Content: {content}\n".format(
+            ID=answer.meta["question ID"], content=answer.meta["answer"])
         
         # Add ID-Score pair to dict
         scores[answer.meta["question ID"]] = answer.score
@@ -123,20 +120,19 @@ def call_gpt(prompt,scores):
         frequency_penalty=0.5,
         presence_penalty=0.2
     )
-
     output = response.choices[0].text.split('\n')[0]
-    print("OUTPUT=======",output)
     res = re.search("\[(.*)\]", output)
-
     if res is None:
         raise Exception("Error getting QID's")
-
     ids = re.split(",", res.group(1))
-    print(ids)
+    
     confidence = compute_average(ids,scores)
 
     output = output[ 0 : output.index("[")]
     output += f"\nConfidence Score: {confidence:.2f}%"
+    output += f"\nSources:\n"
+    for i in ids:
+        output += f"{i.strip()}\n"
 
     return output
 
