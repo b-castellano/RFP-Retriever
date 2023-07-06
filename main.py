@@ -77,15 +77,14 @@ def create_prompt(query, prediction):
     # Provide instructions/prefix
     prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions 
     in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 
-    'question ID, confidence score, and answer'. You will answer the question in the form of a JSON like this:
+    'Question ID, Answer'. You will use the answers in the provided context to respond in a concise manner to the original question,
+     and list the associated question ID's as sources. Respond in the form of a JSON with the following structure:
     
     { 
-    "response": …, 
-    "sources": …
+    "response": "..", 
+    "sources": ["..",".."]
     } 
 
-    The "response" value should be a string consisting of a concise response to the question. The "sources" value should 
-    be a list of the Quesion ID's of the answers you referenced in your response, in the form of a list.
     """
 
     # Create context
@@ -94,8 +93,8 @@ def create_prompt(query, prediction):
     for answer in prediction["answers"]:
 
         # Remove docs 
-        context += "Question ID: {ID}, Content: {content}\n".format(
-            ID=answer.meta["question ID"], content=answer.meta["answer"])
+        context += "Question ID: {ID}, Answer: {answer}\n".format(
+            ID=answer.meta["question ID"], answer=answer.meta["answer"])
         
         # Add ID-Score pair to dict
         scores[answer.meta["question ID"]] = answer.score
@@ -131,11 +130,14 @@ def call_gpt(prompt,scores):
         frequency_penalty=0.5,
         presence_penalty=0.2
     )
+
     output = response.choices[0].text.split('\n')[0]
-    print(output)
+    print("OUTPUT=======",output)
     res = re.search("\[(.*)\]", output)
+
     if res is None:
         raise Exception("Error getting QID's")
+
     ids = re.split(",", res.group(1))
     print(ids)
     confidence = compute_average(ids,scores)
