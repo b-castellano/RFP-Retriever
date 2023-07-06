@@ -75,7 +75,7 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a response. In addition, list the question IDs of the answers you referenced at the end of your response in this form: [...,...]"""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a concise response. In addition, list the question IDs of the answers you referenced at the end of your response in this form: [..,..]"""
 
     # Create context
     context = ""
@@ -122,6 +122,7 @@ def call_gpt(prompt,scores):
         presence_penalty=0.2
     )
     output = response.choices[0].text.split('\n')[0]
+    # print (output)
   
     res = re.search("\[(.*)\]", output)
     if res is None:
@@ -157,7 +158,7 @@ def main():
 
     try:
         # User's question
-        query = "Are encryption keys managed and maintained?"
+        query = "Describe your disaster recovery program.  Do you have an offset storage and facility?"
 
         # Initialize document store
         document_store, loaded = init_store()
