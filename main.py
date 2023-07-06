@@ -75,17 +75,11 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions 
-    in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 
-    'Question ID, Answer'. You will use the answers in the provided context to respond in a concise manner to the original question,
-     and list the associated question ID's as sources. Respond in the form of a JSON with the following structure:
-    
-    { 
-    "response": "..", 
-    "sources": ["..",".."]
-    } 
-
-    """
+    prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions "
+    "in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of "
+    "'question ID, confidence score, and answer'. Use the answers within the context to formulate a concise response. In addition, list "
+    "the referenced question IDs of the answers you referenced at the end of your response in the form of a list."
+   
 
     # Create context
     context = ""
