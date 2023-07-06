@@ -1,0 +1,5 @@
+init_gpt.py
+my_faiss_index.faiss
+my_faiss_index.kson
+faiss_document_store.db
+qna.csv
