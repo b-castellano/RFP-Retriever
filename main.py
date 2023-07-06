@@ -75,19 +75,20 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = "You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a concise response. In addition, list the referenced question IDs of the answers you referenced at the end of your response."
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a response. In addition, list the question IDs of the answers you referenced at the end of your response in this form: [...,...]"""
 
     # Create context
     context = ""
     scores = {}
     for answer in prediction["answers"]:
-
+        newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
         # Remove docs 
-        context += "Question ID: {ID}, Content: {content}\n".format(
-            ID=answer.meta["question ID"], content=answer.meta["answer"])
+        context += "Question ID: {ID}, Answer: {answer}\n".format(
+            ID=answer.meta["question ID"], answer=newAnswer)
         
         # Add ID-Score pair to dict
         scores[answer.meta["question ID"]] = answer.score
+
     # Generate Prompt
     print("Generating prompt...")
     print("PROMPT:", prompt.format(prefix=prefix, question=query, context=context))
@@ -100,7 +101,7 @@ def init_gpt():
 
     openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
     openai.api_type = "azure"
-    openai.api_version = "2023-05-15"
+    openai.api_version = "2023-06-01-preview"
     openai.api_base = "https://immerse.openai.azure.com/"
     
 
@@ -121,6 +122,7 @@ def call_gpt(prompt,scores):
         presence_penalty=0.2
     )
     output = response.choices[0].text.split('\n')[0]
+  
     res = re.search("\[(.*)\]", output)
     if res is None:
         raise Exception("Error getting QID's")
@@ -155,7 +157,7 @@ def main():
 
     try:
         # User's question
-        query = "Are any of your services subcontracted? If yes, please explain in detail."
+        query = "Are encryption keys managed and maintained?"
 
         # Initialize document store
         document_store, loaded = init_store()
@@ -182,7 +184,7 @@ def main():
         # Feed prompt into gpt
         output = call_gpt(prompt, scores)
 
-        print(f"OUTPUT:\n======================={output}")
+        print(f"OUTPUT:\n{output}")
 
     except:
         
