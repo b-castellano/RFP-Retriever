@@ -1,0 +1,69 @@
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization performs vulnerability assessments as part of their information risk assessment process. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization develops, maintains, and coordinates the information risk assessment process which includes identifying risks, analyzing risks in terms of impact and likelihood, evaluating risks against pre-established criteria to rank and prioritize them, communicating risk decisions and tracking/documenting information risk management activities. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, our company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the Enterprise Information Security Organization performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the company performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276

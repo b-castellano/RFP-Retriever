@@ -264,7 +264,7 @@ def call_gpt(prompt):
         max_tokens=1000,
         n=1,
         top_p=0.7,
-        temperature=0.3,
+        temperature=0.2,
         frequency_penalty=0.5,
         presence_penalty=0.2
     )
@@ -309,9 +309,11 @@ def main():
 
         # good_query = "Please describe how you secure data at rest."
         # bad_query = "Are encryption keys managed and maintained?"
-        for n in range(10):
+        count = 100
+        file = open("Output_2.txt", "w")
+        for n in range(count):
             df = pd.read_csv("qna.csv")
-            query = df["question"][n]
+            query = df["question"][1]
             print(query)
 
             #query = "Are encryption keys managed and maintained?"
@@ -328,7 +330,19 @@ def main():
             # Get avaerage confidence interval for relavant answers
             avgscore = compute_average(gpt_output, dict)
 
-            print(f"Output: {gpt_output}\n Score: {avgscore}")
+            # Calculate failure rate
+            fail_count = 0
+            if avgscore < 1:
+                fail_count += 1
+
+            print(f"Question: {query}\n Output: {gpt_output}\n Score: {avgscore}")
+
+            txt = (f"Question: {query}\n" + f"{gpt_output}\n" + f"{avgscore}\n")
+            file.write(txt)
+        file.close()
+
+        fail_count /= count
+        print(f"Fail Ratio: {fail_count}")
         break
 
 if __name__ == "__main__": 

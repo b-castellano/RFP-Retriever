@@ -1,0 +1,303 @@
+Question: Does your company have an access control policy?
+Answer: Yes, the company has an access control policy. [61d5a8ff8fecd3770d08146d]<|im_end|>
+0.9147287011146545
+Question: Does your company perform vulnerability assessments?
+Answer: Yes, the enterprise performs vulnerability assessments. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.9255961179733276
+Question: Have you had any reportable breaches in the last year? If so, please provide a summary.
+Context: We had a breach last year where an attacker was able to access our database and steal customer information. We have since implemented additional security measures to prevent this from happening again.Question ID: 62e157354fe92b3a01a09f18
+0
+Question: Is there an established Business Resiliency & Response program that has been approved by management, communicated to appropriate constituents, and an owner to maintain and review the program?
+Answer: Yes, there is an established Business Resiliency & Response program that has been approved by management, communicated to appropriate constituents, and an owner to maintain and review the program. [61d5a9028fecd3770d0814b3]<|im_end|>
+0.851173996925354
+Question: Is company information backed up regularly?
+Response: Yes, UnitedHealth Group's backup policy maintains two copies of operational data at its secured technology centers. Backups are an initial full and daily incremental. Database backups are retained for 28 days, deleted files are retained in the system for 90 days, and data at field office locations is backed up daily and weekly to one of the primary data centers to facilitate data protection and rapid recovery in the event of localized data loss. Systems and databases are backed up daily and weekly. Weekly backups are sent to off-site storage for the period of the retention on the media. The final weekly backup of the month represents the monthly backup and is sent to off-site storage for the period of retention of media.[61d5a8e78fecd3770d0811f1]<|im_end|>
+0.8440392017364502
+Question: Is your IT environment audited?
+Answer: Yes, the company's internal monitoring controls include internal audits. [61d5a8f78fecd3770d0813a8]<|im_end|>
+0.8603703379631042
+Question: Are encryption keys managed and maintained?
+Answer: Yes, UnitedHealth Groups key management system includes standards, procedures and secure methods for generating keys for different cryptographic systems and different applications, distributing keys to intended users including how keys should be activated when received, storing keys including how authorized users obtain access to keys, changing or updating keys including rules on when keys should be changed and how this will be done, dealing with compromised keys, revoking keys including how keys should be withdrawn or deactivated, recovering keys that are lost or corrupted as part of business continuity management, archiving keys, destroying keys and logging and auditing of key management related activities. [61d5a8e78fecd3770d0811f7]<|im_end|>
+0.7964137494564056
+Question: Restricting Comingled Customer Data From Unauthorized Access
+Answer: AWS and Oracle Cloud (OCI) are responsible for restricting comingled customer data from unauthorized access. [62fc005eb278965577402da4]<|im_end|>
+0.7386537194252014
+Question: Formal / Documented Information Technology Disaster Recovery Exercise and Testing Program in Place
+Response: UnitedHealth Group has a robust Disaster Recovery Program that includes a Formal / Documented Information Technology Disaster Recovery Exercise and Testing Program. The Enterprise Disaster Recovery Program is designed to first eliminate or reduce disaster recovery risk in critical technology areas and then plan for the facilitation and of timely and predictable restoration of key applications, data, and supporting critical infrastructure. Business functions classified as critical generally provide for near immediate failover of core services by leveraging geographically dispersed redundant operations and maintain a recovery time objective of 72 hours or less. At the time of a disaster, an assessment will be performed and the restoration order will be determined by a Master Recovery Timeline. Depending upon the system component, the following recovery capabilities solutions will be implemented to include Rapid Recovery, Hot, Warm.[61d5a8f38fecd3770d081326]<|im_end|>
+0.7925155162811279
+Question: Do your security policies require standard encryption solutions and protocols?
+Question: What is the Enterprise Information Risk Assessment (EIRA) Program?
+0
+Question: Is your company's information security policy based on a generally accepted framework (e.g., ISO27001)?
+Response: "Yes, our information security policies and standards have been developed on the ISO framework. The Enterprise Information Security and Privacy Program protocols are based on industry practices such as NIST and applicable regulatory obligations." [61d5a8fb8fecd3770d081411]<|im_end|>
+0.8276849389076233
+Question: Does your company have a BYOD program?
+Answer: Yes, UnitedHealth Group users are required to authenticate to the master Active Directory domain prior to being granted access to network or application resources. Domain privileges are centrally managed. Applications either rely on a trust relationship with the master domain, or implement additional identification and authentication mechanisms (in addition to those provided by the master domain) depending on the architecture and capabilities of the individual application.[61d5a8fb8fecd3770d081413]<|im_end|>
+0.8512574732303619
+Question: Does the password policy define specific length and complexity requirements?
+Response: "Yes, the password policy does define specific length and complexity requirements. [62475bf52f04a71895d78a60]"
+0.8076150417327881
+Question: Are your platforms hardened?
+Answer: Yes, our platforms are hardened. We follow the Payment Card Industry (PCI) requirement and review network diagrams for all connections to cardholder data, active services/ports for business, including any wireless networks on an annual basis. Firewall and router rule sets and configuration standards associated with cardholder data are reviewed every 6 months. [61d5a8ff8fecd3770d081474]<|im_end|>
+0.7031593173742294
+Question: Does your company monitor for unauthorized actions?
+Answer: Yes, the company monitors usage of its information technology systems in accordance with applicable laws. This includes, but is not limited to, intercepting communications sent or received (either internally or externally), and monitoring the Internet activity of all workforce members. [61d5a9008fecd3770d081491]<|im_end|>
+0.8697119355201721
+Question: What is your company's Privacy incident notification process?
+Answer: "Our company's privacy incident notification process is detailed and includes review of applicable state and federal laws to determine notification obligations specific to the impacted individual resulting from an incident. After identifying the legal obligations for notification, the contractual obligations are assessed and identified to ensure they are accounted for in the development of the notification communication. Communications to external parties, including regulators and impacted individuals, are done in accordance with our internal privacy procedures and legal obligations. The Company notifies customers and impacted individuals of a confirmed breach in accordance with the Company’s regulatory review protocols and any applicable contractual obligations that may exist. Notifications are made in a format that is compliant with the applicable regulatory regime(s) and any contractual obligations. At minimum, notifications include the date of discovery of the breach, a description of the information that was involved, steps that were taken to investigate, any mitigation actions that were taken, and contact information for a person with our Company who is able to provide more information. Notifications to the impacted individual also include information about additional protective steps that can be taken by the impacted individual.[61d5a8e58fecd3770d0811c7]"<|im_end|>
+0.8608707785606384
+Question: Are your PCI policies and procedures aligned with current industry standards (e.g., NIST, ISO 27001)?
+Answer: Yes, our PCI policies and procedures are aligned with current industry standards such as NIST and ISO 27001. To request the compliance documents (PCI Attestation of Compliance (AoC) or Report on Compliance (RoC), submit a request to EIS Services at: https://optum.service-now.com/itss2/?id=sc_cat_item&sys_id=11ecb0e01bccb0548f95fe631a4bcbe9&sysparm_category=888f85c9dbdf3fc03fead404ca96197d [6218ec368d714b4b47fabd7d]<|im_end|>
+0.8028837144374847
+Question: What is the name of your IS security officer?
+Answer: UnitedHealth Group has a Chief Compliance and Privacy Officer. Each business segment also has a Chief Compliance Officer and a segment Privacy Officer. [61d5a8fb8fecd3770d08140b]<|im_end|>
+0.8087247014045715
+Question: Does your company notify the customer in the event of an incident?
+Answer: Yes, we notify the customer in the event of an incident. [61d5a8e68fecd3770d0811d6]<|im_end|>
+0.836962103843689
+Question: Are information security controls in place for External Parties?
+Answer: "Yes, a confidentiality agreement must be in place and a security assessment must have been successfully completed specific to the anticipated services. Enterprise Information Security is responsible for determining the scope of assessment that must be performed." [61d5a9008fecd3770d081489]<|im_end|>
+0.7851915061473846
+Question: Performing Due Diligence on Sub-Servicers / Third Parties
+Response: "Third parties are required to maintain a comprehensive security program that includes physical, administrative, and technical safeguards to protect Vendor Processing Resources and Customer Information. This program must comply with applicable laws, regulations, and UHG contractual requirements. [631b59050e31c9052697a54e]"<|im_end|>
+0.7797253727912903
+Question: Please describe how you secure data at rest.
+Answer: "We encrypt data at rest without regard to its content or type at the storage media (device) level on both disk and tape. The standard/methodology utilized for encryption is Data at Rest Encryption (DARE) using Self Encrypting Drives (SED) with a minimum AES-256 bit cypher key and validated FIPS 140-2 compliance. When a storage array is placed into production, the encryption key is enabled. All data that is subsequently written to that array, regardless of type, origin or classification, is encrypted. Encryption keys are created entirely within the systems themselves and are not visible, recognizable, or changeable by any administrator. There is no external list. Even if encryption is turned off, encrypted data cannot be “read” or deciphered by any individual. The encryption keys are managed several different ways depending on environment: In the mainframe environment, the encryption keys are managed remotely using the IBM product SKLM (Secure Key Lifecycle Manager). This remote key manager is responsible for any maintenance related to the array encryption keys. In the distributed core environment, the encryption keys are either managed remotely using the HP product ESKM (Enterprise Secure Key Manager) This remote key manager is responsible for any maintenance related to the array encryption keys. OR For the arrays, the encryption keys are managed locally on the Storage array. The keys are created, stored and duplicated within the memory/controller subsystem of the array. Secondary backups of these keys are created and stored on the array management station in case of storage array failure.[61d5a8e48fecd3770d08119b]"<|im_end|>
+0.8181658387184143
+Question: Does your company provide Information Security Training?
+Answer: Yes, UnitedHealth Group provides Information Security Training. [61d5a8fb8fecd3770d081411]<|im_end|>
+0.907191276550293
+Question: What tool does your company use for antivirus?
+Answer: UnitedHealth Group has multiple layers of anti-virus and non-anti-virus protection. [61d5a8e88fecd3770d0811fd]<|im_end|>
+0.8242396414279938
+Question: Do Human Resource policies include constituent background screening criteria?
+Answer: No, UnitedHealth Group will not permit any individual to work in the business of insurance if the background investigation reveals that such person has been convicted of any criminal felony involving dishonesty or a breach of trust or that such person has been convicted of any offense under 18 U.S.C. Section 1033 of the Violent Crime Control and Law Enforcement Act of 1994. [63caeae9bcbd8a2863de623e]<|im_end|>
+0.7676807641983032
+Question: Are role access permissions based on role?
+Context: Role-based access control (RBAC) is a method of restricting network access based on the roles of individual users within an enterprise. RBAC lets employees have access rights only to the information they need to do their jobs and prevents them from accessing information that doesn't pertain to them.Question ID: 621fa9e2e415f743909949ce
+0
+Question: Does your organization have Workforce Security policies and procedures to ensure that all staff members have authorized and appropriate access to PHI/PII, and to prevent those staff members who do not have access from obtaining unauthorized access?
+Answer: Yes, UnitedHealth Group has implemented various security measures to safeguard confidential and protected health information. These include the use of web content filtering software, encryption of sensitive emails, scanning of unencrypted emails for sensitive data, patch management, monitoring of internet and external connections using IPS/IDS tools, and 24/7 health and performance monitoring. [61d5a8e38fecd3770d081182]<|im_end|>
+0.8023414015769958
+Question: Does the organization have a formally documented information security policy?
+[61e0419e4c53f31cabfc2cfe]<|im_end|>
+0.8401767313480377
+Question: Does your company have written policies and procedures addressing remediation of findings discovered from network penetration tests?
+Answer: Yes, UnitedHealth Group has written policies and procedures addressing remediation of findings discovered from network penetration tests. [61d5a8eb8fecd3770d08125f]<|im_end|>
+0.8464338481426239
+Question: Does the company have a Chief Privacy Officer?
+Answer: Yes, the Company Privacy Office is responsible for development, adaptation, and oversight of an enterprise-wide decision-making model to facilitate consistent and appropriate policies and practices in the handling of personal information. [61d5a8e78fecd3770d0811e8]<|im_end|>
+0.8465846180915833
+Question: What is the focus of your company's business continuity and disaster recovery plans?
+Answer: UnitedHealth Group’s Enterprise Resiliency & Response Program is focused on minimizing customer impact from disrupted service in a significant event or disaster, while aiding in compliance to regulatory guidelines. The company has IT disaster recovery plans to address natural and human-caused disasters such as hurricanes, floods, fires, terrorism, and pandemics.[6387c4f0b9746b1472767ecc]<|im_end|>
+0.8683117926120758
+Question: Does your company have a formal change management process
+Context: Change management is a formal process used to ensure that changes to a product or system are introduced in a controlled and coordinated manner. Question ID: 61d5a8fa8fecd3770d0813e8
+0
+Question: Mission of Enterprise Information Security
+Response: The mission of the Enterprise Information Security Organization is to protect UnitedHealth Group, its employees, and its clients from inappropriate use of UnitedHealth Group systems and data; protect the confidentiality, integrity, and availability of UnitedHealth Group information assets; develop a system of controls using diverse types that mitigate identified risks; enable the development, review, and maintenance of minimum security standards required to protect UnitedHealth Group information assets; utilize applicable federal, state, and local regulations to develop an information security program; mitigate security-related risks by ensuring that information security is integrated into the organizations methodologies at all appropriate phases; promote information security awareness; and establish core security competencies for the organization. [61d5a8fb8fecd3770d081411]<|im_end|>
+0.7891067564487457
+Question: Does your company have an inactive workstation policy?
+Answer: Yes, UnitedHealth Group has several logical, physical, and procedural controls at the physical, network, and operating system levels to restrict visibility of, and access to, data files at the file system level. [61d5a9018fecd3770d0814a0]<|im_end|>
+0.8407501876354218
+Question: Does your company utilize DLP?
+Answer: No, UnitedHealth Group does not utilize DLP. [61d5a8fe8fecd3770d08144d]<|im_end|>
+0.8522660136222839
+Question: Please describe your use of Data Encryption for sensitive and non-public data.
+Answer: "UnitedHealth Group uses industry standard hard drive full disk encryption software installed as part of the device configuration for all UnitedHealth Group owned and managed desktops/laptops. The software is consistent with National Institute of Standards & Technology (NIST) encryption standards for end user devices. In addition, removable storage devices are not to be used to store data locally and approved removable storage devices are encrypted following the corporate encryption guidelines. UnitedHealth Group encrypts data at rest without regard to its content or type at the storage media (device) level on both disk and tape using Data at Rest Encryption (DARE) using Self Encrypting Drives (SED) with a minimum AES-256 bit cypher key and validated FIPS 140-2 compliance." [61d5a8e38fecd3770d081174]<|im_end|>
+0.8181658685207367
+Question: Length of Time UHC Keeps Protected Health Info (PHI) After Reaching State Retention Period
+Response: "The logs are retained according to the data retention and GDPR guidelines. The length of time UHC keeps PHI after reaching state retention period is also governed by these guidelines. [62682a683e564150feb7a728]"
+0.7954917848110199
+Question: Is there a wireless policy or program that has been approved by management, communicated to appropriate constituents and an owner to maintain and review the policy?
+Context: There is a wireless policy that has been approved by management and communicated to appropriate constituents. The owner of the policy is the Information Security department.Question ID: 64137307d0fef845fa5ca2d3
+0
+Question: Does your company use Multi-factor authentication?
+Answer: Yes, the company uses Multi-factor authentication. [61d5a8ed8fecd3770d081291]<|im_end|>
+0.8523259162902832
+Question: Does your company use IDS/IPS tools?
+Answer: Yes, we use CyberArk automated password vaulting system to control Unix and Windows server administrator passwords. [61d5a8ec8fecd3770d08127b]<|im_end|>
+0.860387533903122
+Question: Does your company have a security incident response team?
+Answer: Yes, UnitedHealth Group has a security incident response team. [61d5a8e68fecd3770d0811d7]<|im_end|>
+0.8933644592761993
+Question: Does your company use a tool for collecting incidents and evidence?
+Question ID: 61d5a8e88fecd3770d0811fd, 9c2e6bce7f3c9f4b5d6b2a7e
+0
+Question: Are encrypted communications required for all remote network connections from external networks containing scoped data?
+Answer: "Yes, encrypted communications are required for all remote network connections from external networks containing scoped data. Remote connections must utilize standard UnitedHealth Group Virtual Private Network (VPN) solutions. There are multiple VPNs for different types of remote connections including Employee VPN and External Customer Connection. [61d5a8fd8fecd3770d08143f]"<|im_end|>
+0.7591830193996429
+Question: Does your company rate vulnerabilities?
+Answer: Yes, the company rates vulnerabilities. The Enterprise Information Risk Assessment reviews threat scenarios pertinent to the business and analyzes controls mitigating those threats to determine residual risk. [61d5a8e78fecd3770d0811f5]<|im_end|>
+0.8505353033542633
+Question: Does your company have DDoS protection?
+Yes, UnitedHealth Group performs external penetration tests annually by a third party selected from a list of 3-4 industry-leading security vendors. [61d5a8e58fecd3770d0811c6]<|im_end|>
+0.8527440428733826
+Question: Are new hires required to complete Security training?
+Response: "Yes, new hires are required to complete Security training.[61d5a8f78fecd3770d081399]"
+0.8172867894172668
+Question: Does your company have a Privacy Program?
+Answer: Yes, the company has a Privacy Program. [61d5a8f78fecd3770d0813a6]<|im_end|>
+0.9008910655975342
+Question: Secure Software Development Lifecycle Policy
+Context: The Development Security Testing Software – Production used by COMprehensive Policy Administration System is AppScanQuestion ID: 623de0a78000636b4c66f5d9
+0
+Question: Does your company utilize outsourced suppliers?
+Answer: "UnitedHealth Group may source services and/or solutions to include but not be limited to information system design, development, testing, QA, implementation and problem resolution. However, it is usually not customary to supply such providers with direct access to customer data for these services.[61d5a9018fecd3770d081496]"<|im_end|>
+0.8636468648910522
+Question: Do audit logs capture at least the following information: Successful logins, failed logins, data views, data modifications, and data deletions?
+Context: The audit trail logs must capture at least the following information: Successful logins, failed logins, data views, data modifications, and data deletions. The audit trail logs must be retained for a minimum of 90 days unless otherwise specified by law or regulation.Question ID: 61d5a8fc8fecd3770d08142c
+0
+Question: Does your company have a detailed process for handling of breaches?
+Answer: Yes, UnitedHealth Group and Optum Technologies have an established remediation schedule to support the review and results of security risk assessments overall. The service level timeframes for vulnerabilities are identified as: External Facing Critical: 5 days High: 30 days Medium: 60 days Low: 90 days End User Device Critical: 7 days High: 60 days Medium: 90 days Low: N/A Internal Facing Critical: 30 days High: 90 days Medium: 120 days Low: N/A. [61d5a8e58fecd3770d0811c0]<|im_end|>
+0.8670432865619659
+Question: What is your technology budget?
+Question: What is the average number of workstations per employee?
+0
+Question: Use of Production Data in Non-production Environments
+Response: "Employer eServices Portal does not use production data in non-production environments. [623b33d854e8c24e13199856]"<|im_end|>
+0.8081471920013428
+Question: Does your company have network perimeter protection?
+Answer: Yes, UnitedHealth Group manages and supports a robust Information Security Management program that is based on HITRUST, as well as, other industry standard frameworks. UnitedHealth Group manages a robust Information Security Risk Management and Privacy Program that improves its ability to make risk-informed decisions by conducting systematic and structured reviews of information security risks. Its protocols are based on industry practices and applicable regulatory obligations such as the Health Insurance Portability and Accountability Act (HIPAA), Gramm-Leach-Bliley Act (GLBA), Payment Card Industry standards (PCI), General Data Protection Regulation (GDPR), New York Cybersecurity Regulations (NYCR) and other requirements promulgated by state, federal, and international authorities. Additionally, external penetration tests are performed annually by a third party selected from a list of 3-4 industry-leading security vendors. [61d5a8e58fecd3770d0811c6]<|im_end|>
+0.8916251063346863
+Question: Is there an access control program that has been approved by management, communicated to constituents and an owner to maintain and review the program?
+Context: The access control program has been approved by management and communicated to constituents. It is the responsibility of the Information Security department to maintain and review the program.Question ID: 64137307d0fef845fa5ca2d3
+0
+Question: HIPAA Breach Notification Regulations
+Response: "External vendors are responsible for complying with all information security controls required by applicable laws and regulatory requirements, such as HIPAA, and as outlined within the Security Exhibit. The contracts UnitedHealth Group has in place with external third part vendors are considered to be confidential and proprietary to UnitedHealth Group and are not typically shared outside the company." [61d5a9008fecd3770d08148a]<|im_end|>
+0.7900629639625549
+Question: Formalized Risk Governance Plan Defining Enterprise Risk Management Program Requirements
+Response: The Information Risk Services office is structured into two major components, one of which ensures business plans and programs are in alignment with information risk management policies and related programs. The other component provides various resources to support the business day-to-day compliance activities. There is a designated Business Information Security Officer (BISO) for each business organization who oversees the information risk program within that organization. Additionally, Segment Information Security Officers (SISOs) work as an agent of the BISO and Chief Information Security Officer (CISO) to manage the day-to-day operations of the business organization’s information risk management program. The SISO is responsible for reporting on the status of their respective business organizations' information risk management program to the EIS Organization. [61d5a8fd8fecd3770d081434]<|im_end|>
+0.8137831091880798
+Question: Is sufficient detail contained in operating system and application logs to support security incident investigations (at a minimum, successful and failed login attempts, and changes to sensitive configuration settings and files)?
+Context: Yes, but it is important to ensure that the correct logging level is set and that logs are stored securely.Question ID: 64137307d0fef845fa5ca2d3
+0
+Question: Does your company have policies on the frequency of password changes?
+Context: The policy is to change passwords every 90 days.Question ID: 8b0dd33a0b2f6b92f65d4ab3
+0
+Question: Is sensitive data protected?
+Answer: Yes, UnitedHealth Group complies with all applicable regulatory requirements regarding the security and protection of sensitive data. Compliance is supported by UnitedHealth Groups established policies and standards, which take into consideration industry practices, regulatory requirements, ISO standards, and customer perspectives. Customer data is protected from being compromised end-to-end within UnitedHealth Groups environment through the use of, but not limited to: Formal security policies and standard baseline configurations, access control mechanisms designed to enforce least privilege access to resources with access granted on a need to access basis as determined by the users assigned duties, regular access/entitlement reviews to ensure users have only the minimum required level of access, physical controls for sensitive areas (e.g., datacenters, and user processing areas), monitoring the environment (24/7 Security Operations Center) for security-related events of interest, formal security incident response capability to quickly assess potential security incidents and determine the appropriate short- and long-term actions. [62d54e0a60562e185a882475]<|im_end|>
+0.8182594776153564
+Question: Established Incident Management Program
+Response: "The Security Incident Response Team is responsible for coordinating incident detection, analysis, containment, mitigation, recovery and final reporting efforts to assure timely resolution of all security and privacy incidents upon identification. They also coordinate any/all notification to required entities as an outcome of a security/privacy related incident. [61d5a8e38fecd3770d08117f]"<|im_end|>
+0.816832035779953
+Question: For Live and Work Well, Password Information/Registration: 
+Is HealthSafe ID or One Healthcare ID (Optum ID Cloud) being used by users to authenticate?
+"Currently, users are able to authenticate using their HealthSafe ID or One Healthcare ID (Optum ID Cloud) credentials. If a user does not have an existing account, they can create one by selecting the “Register Now” button on the login page."
+0
+Question: For Live and Work Well, Explain Process: Are password files and application system data stored in different file systems?
+Answer: No, password files and application system data are not stored in different file systems. [621cd4588d714b4b47fde686]<|im_end|>
+0.942907065153122
+Question: For Live and Work Well, Upon logon failure, does an error message describe the cause of the failure to the user (Invalid password, invalid user ID, etc.)?
+Context: Live and Work Well does not display an error message upon login failure describing the cause. Question ID: 626ffedfd5af8c72d0073853
+0
+Question: For Live and Work Well, Are users’ passwords for this system encrypted in storage and in transmission?
+Answer ID: 64371a9d8f3b2e570f6da9bc
+0
+Question: For Live and Work Well, Identify what Secure HASH Algorithm (SHA-1, SHA-2 or SHA-3) salt, or one way HASHs is utilized
+    We use SHA-1 to hash the passwords in our database. 
+0
+Question: For Live and Work Well, Upon successful logon, does a message indicate the last time of successful logon?
+The Live and Work Well website does not display the last time of successful logon upon successful logon. 
+0
+Question: For Live and Work Well, Does the Application support SSO?
+    Yes, Live and Work Well supports SSO. 
+0
+Question: For Live and Work Well, Application Access Overview (How are internal UHG employees and/or external employers / members / consumers granted access to the application?)
+"Internal UHG employees are granted access to Live and Work Well via their network login credentials. External employers, members and consumers are granted access via unique usernames and passwords."
+0
+Question: For Live and Work Well, Does the Live and Work Well Portal include a digital signature from a publicly trusted certificate authority (CA) for Windows executables?
+Context: The Live and Work Well Portal does not include a digital signature from a publicly trusted certificate authority (CA) for Windows executables. Question ID: 6216a7d68d714b4b47f695cc
+0
+Question: For Live and Work Well, Do passwords expire after a specified period of time requiring the user to change the password?
+Response: "Yes, passwords for Live and Work Well do expire after a specified period of time requiring the user to change the password. [6217fc2c8d714b4b47f9a245]"
+0.8490052223205566
+Question: For Live and Work Well, Is Multi-Factor Authentication in place?
+Answer: Yes, Multi-Factor Authentication is in place for Live and Work Well. [61d5a8e38fecd3770d08117c]<|im_end|>
+0.838259369134903
+Question: For Live and Work Well, Is the application compatible with Active Directory ADFS?
+Response: "Yes, Live and Work Well is compatible with Active Directory ADFS. [63d18d0b80558c1521685d0c]"
+0.8110591173171997
+Question: For Live and Work Well, Is standards based federated ID and authentication/authorization capability available to clients (e.g., SAML, OpenID, SSO)?
+Response: "No, there is no standards based federated ID and authentication/authorization capability available to clients for Live and Work Well.[6217f3e88d714b4b47f97062]"
+0.9221381843090057
+Question: For Live and Work Well, Are passwords configured to prohibit users from reusing their last 4 passwords?
+Response: "Yes, passwords are configured to prohibit users from reusing their last 4 passwords. [6216a7d68d714b4b47f695ca]"
+0.8430400490760803
+Question: For Live and Work Well, Does Optum have the ability to terminate active user sessions in case of issues?
+Answer: Yes, Optum Enterprise CAC CDI 3D - WEB UI session timeout for inactivity is 20 minutes and the system does require re-authentication. [621656508d714b4b47f485c6]<|im_end|>
+0.8175890445709229
+Question: For Live and Work Well, Does Key management takes into account the data classification and regulatory sensitivity of the data being stored in the Cloud / Multi‐tenant environment?
+Question: What is the role of Enterprise Information Security (EIS) in the Company?
+0
+Question: For Live and Work Well, Are encryption keys are unique per tenancy?
+Response: "Yes, encryption keys are unique per tenancy. [6216a7d68d714b4b47f695ca]"
+0.8563892245292664
+Question: For Live and Work Well, Are encryption keys are unique per external application for data in transit.
+Answer: "Encryption keys are unique per external application for data in transit. [6216a7d68d714b4b47f695ca]"
+0.8563892245292664
+Question: For Live and Work Well, Are encryption keys are unique per external application for data in storage.
+Context: For Live and Work Well, encryption keys are unique per external application for data in storage.Question ID: 6216a7d68d714b4b47f695ca
+0
+Question: For Live and Work Well, What industry standards are adopted by your APIs (if applicable) – e.g. OAuth2, HL7 FHIR
+Response: "We do not have any externally facing APIs. [6217fc2c8d714b4b47f9a245]"
+0.8778451681137085
+Question: For Live and Work Well, If you are using FHIR standards, please share additional details
+Response: "Live and Work Well is a load balanced application that releases updates and fixes on a weekly basis without any downtime. If there is planned downtime, the business will be notified. [6216a7d78d714b4b47f695cf]"[6216a7d78d714b4b47f695cf]<|im_end|>
+0
+Question: For Live and Work Well, What do you use to determine individual member uniqueness?
+Context: Member informationQuestion ID: 6216a7d68d714b4b47f695cc
+0
+Question: For Live and Work Well, What ID is established for a customer member?
+Answer: "For Live and Work Well, the ID established for a customer member is a Healthsafe ID that is created by the members themselves. [6217fc2c8d714b4b47f9a245]"
+0.8480432629585266
+Question: For Live and Work Well, What IDs are received by your solution from customer or entry point?
+Context: The Live and Work Well solution receives HealthSafe IDs from the customer or entry point. 
+0
+Question: For Live and Work Well, Can you update any IDs being used to map to the customer in your system (either add or overlay what you already have)?
+Context: The ID mapping is used to identify the customer in the system.Question ID: 6216a7d68d714b4b47f695ca
+0
+Question: For Live and Work Well, Is minimum password length 8 characters or more?
+Context: The minimum password length for Live and Work Well is 8 characters.Question ID: 626c39afd5af8c72d0052ee3
+0
+Question: For Live and Work Well, Does minimum password complexity enforce at least three of these four password requirements (upper case letter, lower case letter, number, or special character)?
+"Minimum password complexity for Live and Work Well enforces at least three of the four password requirements (upper case letter, lower case letter, number, or special character). [6217fc2c8d714b4b47f9a245]"
+0.8792865574359894
+Question: For Live and Work Well, Do you require passwords to be changed every 90 days or less?
+Answer: No, Live and Work Well does not require passwords to be changed every 90 days or less. "PEX-11558 is on file: Users are not required to change their password (Security Standard = For web-based applications accessed by consumers, user passwords should be changed once every 365 days)." [6216a7d68d714b4b47f695ca]<|im_end|>
+0.9110226929187775
+Question: For Live and Work Well, Do you keep password history and prohibit re-use of recent passwords?
+Response: "Yes, we keep password history and prohibit re-use of recent passwords.[62682a683e564150feb7a726]"
+0.8793188035488129
+Question: For Live and Work Well, Does the solution support Multi-factor Authentication?
+Response: "Live and Work Well does support Multi-factor Authentication.[626c39afd5af8c72d0052ee3]"
+0.8561604022979736
+Question: For Live and Work Well, Are initial passwords system generated?
+Response: "Yes, initial passwords for Live and Work Well are system generated. [626c39afd5af8c72d0052ee3]"
+0.8753931522369385
+Question: For MyUHC2, Is the application considered cloud-based (e.g., managed in a cloud infrastructure) or is it cloud-enabled (supports APIs which enable interaction with cloud-based solutions)?
+Answer: "MyUHC2 is cloud-enabled as it supports APIs which enable interaction with cloud-based solutions. The UHC M&R Member portal is hosted at Amazon Web Services (AWS) in a Virtual Private Cloud. Backend data supporting the member portal (eligibility, claim data) resides in UnitedHealth Groups owned and managed Data Centers and is accessed via API calls to the source systems.[621cbfca8d714b4b47fdbd7f]"
+0.8852163553237915
+Question: For MyUHC2, Is your company’s hosting and/or cloud services data center located within the borders of the United States?
+Answer: Yes, the data center is located in Minnesota, USA. [6217fc2c8d714b4b47f9a244]<|im_end|>
+0.8539552688598633
+Question: For MyUHC2, What are the geographic locations (state, country) for your primary and backup facilities?
+Answer: "MyUHC2's primary and backup facilities are located in the United States. [6217fc2c8d714b4b47f9a246]"<|im_end|>
+0.7967479228973389
+Question: For MyUHC2, If co-locations we need SOC 2 Reports for the locations as well or the equivalent report
+Answer: "No, they do not need SOC 2 Reports for the locations if they have HITRUST certification. [6218f17a8d714b4b47fac4ff]"
+0.772423654794693
+Question: For MyUHC2, Do you collect capacity and use data for all relevant components of your cloud service offering?
+Context: We collect capacity and use data for all relevant components of our cloud service offering.Question ID: 62fc005eb278965577402d9b
+0
+Question: For MyUHC2, Is your solution a Cloud based solution?
+Context: The third party vendors used by MYUHC are not disclosed. Question ID: 6217f9548d714b4b47f99461
+0
+Question: For MyUHC2, Is the Solution in a Single tenant or multi tenant environment?
+Context: MyUHC2 is a single tenant environment.
+0
+Question: For MyUHC2, What cloud deployment model is utilized?
+Answer: "MyUHC2 is supported by CDB, NICE, TOPS, etc. on the backend. [6217fc2c8d714b4b47f9a242]"<|im_end|>
+0.8520030081272125
+
+Fail Ratio: 0.3
