@@ -67,7 +67,7 @@ def query_faiss(query, pipe):
     # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
     # if query == "STOP":
     #     break
-    return pipe.run(query=query, params={"Retriever": {"top_k": 3}})
+    return pipe.run(query=query, params={"Retriever": {"top_k": 4}})
 
 # Create prompt template
 def create_prompt(query, prediction):
@@ -75,7 +75,11 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a concise response. In addition, list the question IDs of the answers you referenced at the end of your response in this form: [..,..]"""
+    prefix = """You are an assistant for the Information Security department of an enterprise 
+    designed to answer security questions in a professional manner. Provided is the original 
+    question and some context consisting of a sequence of answers in the form of 'question ID, answer'.
+     Use the answers within the context to formulate a concise response. Only at the end of your entire response, 
+     list the question IDs of the answers you referenced in this form: [..,..,..,..]"""
 
     # Create context
     context = ""
@@ -117,12 +121,12 @@ def call_gpt(prompt,scores):
         max_tokens=500,
         n=1,
         top_p=0.7,
-        temperature=0.3,
+        temperature=0.7,
         frequency_penalty=0.5,
         presence_penalty=0.2
     )
     output = response.choices[0].text.split('\n')[0]
-    # print (output)
+    print(output)
   
     res = re.search("\[(.*)\]", output)
     if res is None:
@@ -158,7 +162,7 @@ def main():
 
     try:
         # User's question
-        query = "Describe your disaster recovery program.  Do you have an offset storage and facility?"
+        query = "How often does UHG perform internal audits?"
 
         # Initialize document store
         document_store, loaded = init_store()
