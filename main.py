@@ -146,7 +146,7 @@ def compute_average(ids, scores):
 
     for id in ids:
         id = id.strip()
-        total += scores[id]
+        total += scores
     
     avgscore = total / len(ids)
     avgscore *= 100 
