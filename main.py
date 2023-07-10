@@ -75,11 +75,7 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise 
-    designed to answer security questions in a professional manner. Provided is the original 
-    question and some context consisting of a sequence of answers in the form of 'question ID, answer'.
-     Use the answers within the context to formulate a concise response. Only at the end of your entire response, 
-     list the question IDs of the answers you referenced in this form: [..,..,..,..]"""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a concise response. List the question IDs of the answers you referenced to formulate your response."""
 
     # Create context
     context = ""
@@ -121,13 +117,14 @@ def call_gpt(prompt,scores):
         max_tokens=500,
         n=1,
         top_p=0.7,
-        temperature=0.7,
-        frequency_penalty=0.5,
-        presence_penalty=0.2
+        temperature=0.1,
+        frequency_penalty=0.0,
+        presence_penalty=0.0
     )
     output = response.choices[0].text.split('\n')[0]
+    output = output[ 0 : output.index("<|im_end|>")]
     print(output)
-  
+    
     res = re.search("\[(.*)\]", output)
     if res is None:
         raise Exception("Error getting QID's")
@@ -135,7 +132,7 @@ def call_gpt(prompt,scores):
     
     confidence = compute_average(ids,scores)
 
-    output = output[ 0 : output.index("[")]
+   
     output += f"\nConfidence Score: {confidence:.2f}%"
     output += f"\nSources:\n"
     for i in ids:
