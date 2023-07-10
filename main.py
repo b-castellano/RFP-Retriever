@@ -1,4 +1,6 @@
 # General
+import warnings
+import os
 import pandas as pd
 from datasets import load_dataset
 import torch
@@ -17,6 +19,10 @@ from haystack.utils import print_answers
 import langchain
 from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
+
+# Warning filter
+warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 def init_store():
     try:
@@ -94,9 +100,9 @@ def create_prompt(query, prediction):
 
     # Generate Prompt
     print("Generating prompt...")
-    print("PROMPT:", gpt_template)
+    print("PROMPT:", gpt_template.format(question=query, context=context))
     
-    return gpt_template, scores
+    return gpt_template.format(question=query, context=context), scores
 
 def init_gpt():
     openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
@@ -118,16 +124,15 @@ def call_gpt(prompt,scores):
         presence_penalty=0.0
     )
     output = response.choices[0].text.split('\n')[0]
-    output = output[ 0 : output.index("<|im_end|>")]
     print(output)
     
     ids = re.findall("CID\d+", output)
-
+    output = re.sub("CID\d+", "", output)
     if ids is None:
         raise Exception("Error getting QID's")
 
     confidence = compute_average(ids,scores)
-
+    output = output[ 0 : output.rindex(".") + 1]
 
     output += f"\nConfidence Score: {confidence:.2f}%"
     output += f"\nSources:\n"
@@ -140,7 +145,6 @@ def compute_average(ids, scores):
     total = 0
 
     for id in ids:
-
         id = id.strip()
         total += scores[id]
     
@@ -174,7 +178,7 @@ def main():
             # good_query = "Please describe how you secure data at rest."
             # bad_query = "Are encryption keys managed and maintained?"
 
-            count = 100
+            count = 1
             file = open("Output_2.txt", "w")
             for n in range(count):
                 df = pd.read_csv("qna.csv")
@@ -195,7 +199,7 @@ def main():
                 txt = (f"Question: {query}\n" + f"{output}\n")
                 file.write(txt)
             file.close()
-            
+            break
     except:
         print("Error initializing var")
         traceback.print_exc()
