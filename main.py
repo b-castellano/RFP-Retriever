@@ -120,7 +120,7 @@ def call_gpt(prompt,scores):
     output = response.choices[0].text.split('\n')[0]
     output = output[ 0 : output.index("<|im_end|>")]
     print(output)
-
+    
     res = re.search("\[(.*)\]", output)
     if res is None:
         raise Exception("Error getting QID's")
