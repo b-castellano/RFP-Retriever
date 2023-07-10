@@ -122,16 +122,16 @@ def call_gpt(prompt,scores):
         presence_penalty=0.0
     )
     output = response.choices[0].text.split('\n')[0]
-    output = output[ 0 : output.index("<|im_end|>")]
+    
     print(output)
     
     ids = re.findall("CID\d+", output)
-
+    output = re.sub("CID\d+", "", output)
     if ids is None:
         raise Exception("Error getting QID's")
 
     confidence = compute_average(ids,scores)
-
+    output = output[ 0 : output.rindex(".") + 1]
    
     output += f"\nConfidence Score: {confidence:.2f}%"
     output += f"\nSources:\n"
