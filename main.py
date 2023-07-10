@@ -85,12 +85,12 @@ def create_prompt(query, prediction):
     context = ""
     scores = {}
     for answer in prediction["answers"]:
-        prompt_context = re.sub("[\[\]']","",answer.meta["answer"])
-        # Remove Docs
-        context += "Question ID: {ID}\n Content: {content}\n".format(ID=answer.meta["question ID"], answer=prompt_context)
+        prompt_context = re.sub("[\[\]'\"]","",answer.meta["answer"])
+        # Remove docs 
+        context += "Question ID: {ID}, Answer: {answer}\n".format(ID=answer.meta["cid"], answer=prompt_context)
         
         # Add ID-Score pair to dict
-        scores[answer.meta["question ID"]] = answer.score
+        scores[answer.meta["cid"]] = answer.score
 
     # Generate Prompt
     print("Generating prompt...")
@@ -121,12 +121,13 @@ def call_gpt(prompt,scores):
     output = output[ 0 : output.index("<|im_end|>")]
     print(output)
     
-    res = re.search("\[(.*)\]", output)
-    if res is None:
+    ids = re.findall("CID\d+", output)
+
+    if ids is None:
         raise Exception("Error getting QID's")
-    ids = re.split(",", res.group(1))
 
     confidence = compute_average(ids,scores)
+
 
     output += f"\nConfidence Score: {confidence:.2f}%"
     output += f"\nSources:\n"
