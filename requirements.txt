@@ -1,6 +1,6 @@
 altair
 pandas
-scipy
+numpy
 datasets
 langchain
 PyPDF2
@@ -15,3 +15,5 @@ langchain
 PyYAML
 farm-haystack[faiss]
 farm-haystack[inference]
+pyperclip
+
