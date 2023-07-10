@@ -77,15 +77,6 @@ def write_docs(document_store, retriever):
 def init_pipe(retriever):
     return FAQPipeline(retriever=retriever)
 
-
-def query_faiss(query, pipe):
-    # while True:
-    # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
-    # if query == "STOP":
-    #     break
-    return pipe.run(query=query, params={"Retriever": {"top_k": 4}})
-
-
 def get_response(pipe, query):
 
     prediction = query_faiss(query, pipe)
@@ -96,17 +87,21 @@ def get_response(pipe, query):
     # Feed prompt into gpt
     return call_gpt(prompt, scores)
 
+def query_faiss(query, pipe):
+    # while True:
+    # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
+    # if query == "STOP":
+    #     break
+    return pipe.run(query=query, params={"Retriever": {"top_k": 4}})
+
+
 # Create prompt template
 def create_prompt(query, prediction):
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise 
-    designed to answer security questions in a professional manner. Provided is the original 
-    question and some context consisting of a sequence of answers in the form of 'question ID, answer'.
-     Use the answers within the context to formulate a concise response. Only at the end of your entire response, 
-     list the question IDs of the answers you referenced in this form: [..,..,..,..]"""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of data in the form of 'question ID, answer'.Use the answers within the context to formulate a concise response. At the end of your entire response, output the question IDs of the answers you referenced"""
 
     # Create context
     context = ""
@@ -119,11 +114,7 @@ def create_prompt(query, prediction):
         
         # Add ID-Score pair to dict
         scores[answer.meta["question ID"]] = answer.score
-
-    # Generate Prompt
-    print("Generating prompt...")
-    print("PROMPT:", prompt.format(prefix=prefix, question=query, context=context))
-    
+    print (prompt.format(prefix=prefix, question=query, context=context))
     return prompt.format(prefix=prefix, question=query, context=context), scores
     
 
@@ -147,15 +138,15 @@ def call_gpt(prompt,scores):
                 ),
         max_tokens=500,
         n=1,
-        top_p=0.1,
-        temperature=0.2,
+        top_p=0.7,
+        temperature=0.7,
         frequency_penalty=0.5,
         presence_penalty=0.2
     )
     output = response.choices[0].text.split('\n')[0]
-    print(output)
   
     res = re.search("\[(.*)\]", output)
+    
     if res is None:
         raise Exception("Error getting QID's")
     ids = re.split(",", res.group(1))
@@ -193,7 +184,7 @@ def main():
         pipe = init()
 
         # User's question
-        query = "Does your organization evaluate all master images for vulnerabilities and security updates within 24 hours prior to provisioning systems that are hosted in cloud service environments?"
+        query = "What is Optums policy on storing important documents?"
         
         # Get response
         output = get_response(pipe, query)
