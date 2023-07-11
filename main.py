@@ -205,7 +205,7 @@ def main():
         pipe = init()
 
         # User's question
-        query = "Does the Vendor require background checks for their staff?. Please explain."
+        query = "How does the Vendor assess security of the software developed or acquired?"
 
         # Initialize document store
         document_store, loaded = init_store()
