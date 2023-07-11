@@ -76,3 +76,11 @@ CID46514
 CID47144
 CID46608
 
+engine=deployment_name,
+        prompt=(prompt),
+        max_tokens=500,
+        n=1,
+        top_p=0.7,
+        temperature=0.1,
+        frequency_penalty=0.0,
+        presence_penalty=0.0

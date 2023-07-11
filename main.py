@@ -77,10 +77,10 @@ def create_prompt(query, prediction):
     if "?" not in query:
         query += "?"
 
-    template = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner.
-    Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID and answer'.
+    template = """"You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner.
+    Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'.
     Use the answers within the context to formulate a concise response.
-    List the question IDs of the answers you referenced at the end of your response in this form: [...,...]"
+    List the question IDs of the answers you referenced to formulate your response."
     Question: {question}
     
     Context: {context}
@@ -183,7 +183,7 @@ def main():
             # bad_query = "Are encryption keys managed and maintained?"
 
             count = 10
-            file = open("Output_3_1.txt", "w")
+            file = open("Output_4.txt", "w")
             for n in range(count):
                 df = pd.read_csv("qna.csv")
                 query = df["question"][n]
