@@ -70,16 +70,19 @@ def query_faiss(query, pipe):
     # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
     # if query == "STOP":
     #     break
-    return pipe.run(query=query, params={"Retriever": {"top_k": 4}})
+    return pipe.run(query=query, params={"Retriever": {"top_k": 10}})
 
 # Create prompt template
 def create_prompt(query, prediction):
+    if "?" not in query:
+        query += "?"
+
     template = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner.
     Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID and answer'.
     Use the answers within the context to formulate a concise response.
     List the question IDs of the answers you referenced at the end of your response in this form: [...,...]"
     Question: {question}
-
+    
     Context: {context}
     """
     gpt_template = PromptTemplate (
@@ -119,7 +122,7 @@ def call_gpt(prompt,scores):
         max_tokens=500,
         n=1,
         top_p=0.7,
-        temperature=0.1,
+        temperature=0.3,
         frequency_penalty=0.0,
         presence_penalty=0.0
     )
@@ -128,12 +131,13 @@ def call_gpt(prompt,scores):
     
     ids = re.findall("CID\d+", output)
     output = re.sub("CID\d+", "", output)
-    if ids is None:
-        raise Exception("Error getting QID's")
+
+    if ids is None or len(ids) == 0:
+        raise Exception("Error getting CID's")
 
     confidence = compute_average(ids,scores)
     output = output[ 0 : output.rindex(".") + 1]
-
+   
     output += f"\nConfidence Score: {confidence:.2f}%"
     output += f"\nSources:\n"
     for i in ids:
@@ -179,7 +183,7 @@ def main():
             # bad_query = "Are encryption keys managed and maintained?"
 
             count = 10
-            file = open("Output_2_1.txt", "w")
+            file = open("Output_3_1.txt", "w")
             for n in range(count):
                 df = pd.read_csv("qna.csv")
                 query = df["question"][n]

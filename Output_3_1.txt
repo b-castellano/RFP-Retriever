@@ -1,0 +1,23 @@
+Question: Does your company perform vulnerability assessments?
+ "Yes, vulnerability assessments are conducted during development and throughout the life of the information system. Penetration tests of UnitedHealth Group’s external web applications are performed annually by third party industry-leading security vendors. Internal penetration testing is done by the Ethical Hacking team. Standard operating procedure is to leverage a risk-based approach to identify specific applications to be included in each annual test. The external vulnerability scanning, performed as part of the penetration tests, includes scans for web application vulnerabilities in accordance with OWASP guidance. In addition to the external network penetration testing, UnitedHealth Group performs periodic Application web-based scanning, and static code analysis for external facing critical business applications. As a matter of good practice, UnitedHealth Group does not disclose detailed information concerning security assessment results. Executive summary-level reports are available to senior management, which provide an overview of the process and results tabulated by severity level. The remediation of potential issues identified during scans is addressed based on the residual risk exposure.
+Confidence Score: 94.57%
+Sources:
+CID46467
+CID46514
+CID66166
+
+Question: Have you had any reportable breaches in the last year? If so, please provide a summary.
+ "Yes, as a matter of practice, the Company does not disclose details concerning security or privacy incidents and investigations, except to comply with applicable laws, regulations and contractual obligations, including the US Department of Health & Human Services (HHS) breach regulations. Confirmed breaches involving more than 500 individuals are posted to the HHS Breach Website and small breaches are filed on an annual basis with the HHS Office for Civil Rights. Our Company understands it’s responsibility to protect confidential and proprietary information and to maintain availability and integrity of information systems and assets. This commitment is integral to the relationships we have with customers, suppliers, and other stakeholders. The Company also understands the sensitivity and seriousness of an information breach. Our Company is committed to investigate all reported matters. We take any alleged or confirmed incident seriously. When we become aware of a potential or actual incident, a systematic investigation is promptly undertaken to analyze, contain, recover, and implement post-incident management including the review of any customer, member, and regulator notification obligations. Corrective action often includes employee retraining, coaching, and review to determine if disciplinary action is appropriate. We have a trained staff proficient in various disciplines such as Compliance, Privacy, Security, Information Risk Management, Legal Counsel, and executive leadership, who provide expertise during this process as circumstances warrant.
+Confidence Score: 92.68%
+Sources:
+CID46481
+CID46564
+
+engine=deployment_name,
+        prompt=(prompt),
+        max_tokens=500,
+        n=1,
+        top_p=0.7,
+        temperature=0.3,
+        frequency_penalty=0.0,
+        presence_penalty=0.0
