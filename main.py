@@ -70,7 +70,7 @@ def query_faiss(query, pipe):
     # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
     # if query == "STOP":
     #     break
-    return pipe.run(query=query, params={"Retriever": {"top_k": 10}})
+    return pipe.run(query=query, params={"Retriever": {"top_k": 5}})
 
 # Create prompt template
 def create_prompt(query, prediction):
@@ -81,6 +81,7 @@ def create_prompt(query, prediction):
     Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'.
     Use the answers within the context to formulate a concise response.
     List the question IDs of the answers you referenced to formulate your response."
+    
     Question: {question}
     
     Context: {context}
@@ -179,8 +180,8 @@ def main():
             #query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
             #if query == "STOP":
             #    break
-            # good_query = "Please describe how you secure data at rest."
-            # bad_query = "Are encryption keys managed and maintained?"
+            #good_query = "Please describe how you secure data at rest."
+            #bad_query = "Are encryption keys managed and maintained?"
 
             count = 10
             file = open("Output_4.txt", "w")
