@@ -151,7 +151,7 @@ def call_gpt(prompt,scores,alts):
         prompt=(f"Original Question: {prompt}\n"
                 "Answer:"
                 ),
-        max_tokens=500,
+        max_tokens=1000,
         n=1,
         top_p=0.7,
         temperature=0.3,
