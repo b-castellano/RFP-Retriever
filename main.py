@@ -163,7 +163,7 @@ def main():
 
     try:
         # User's question
-        query = "How often is UHG audited"
+        query = "Does the Vendor undergo a privacy impact assessment and third party audit of privacy policies and program?"
 
         # Initialize document store
         document_store, loaded = init_store()
