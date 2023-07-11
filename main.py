@@ -38,7 +38,6 @@ warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-
 def init_store():
     try:
 
@@ -89,10 +88,11 @@ def query_faiss(query, pipe):
     # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
     # if query == "STOP":
     #     break
-    return pipe.run(query=query, params={"Retriever": {"top_k": 3}})
+    return pipe.run(query=query, params={"Retriever": {"top_k": 4}})
 
 # Create prompt template
 def create_prompt(query, prediction, user_preference):
+    ### user_preference might eventually become "Short", "Yes/No", "Elaborate", etc. for answer preferences
     print("Creating prompt")
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
@@ -100,44 +100,49 @@ def create_prompt(query, prediction, user_preference):
     # Provide instructions/prefix
     ## TODO: create prefix variants based on user_preference value
     prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a response. In addition, list the question IDs of the answers you referenced at the end of your response in this form: [...,...]"""
-    # if user_preference == "Short":
-    # elif user_preference == "Regular":
-    # elif user_preference == "Elaborate":
-    # else: # currently Yes/No Case
+
 
     # Create context
     context = ""
     scores = {}
-    SMEs, file_names, CIDs = {}, [], []
-    print("\n\n\n")
-    print(prediction["answers"])
-    print("\n\n\n")
+    SMEs, sme_dict, source_filenames, source_links, CIDs = [], {}, [], [], []  # SMEs are dictionary in this function to allow us to more easily get best_sme later
     for answer in prediction["answers"]:
         newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
         # Remove docs 
         context += "Question ID: {ID}, Answer: {answer}\n".format(
-            ID=answer.meta["question ID"], answer=newAnswer)
+            ID=answer.meta["cid"], answer=newAnswer)
         
         # Add ID-Score pair to dict
-        scores[answer.meta["question ID"]] = answer.score
-        SMEs[answer.meta["question ID"]] = answer.meta["sme"]
-        file_names.append(answer.meta["file name"])
-        # CIDs.append(answer.meta["cid"])
+        scores[answer.meta["cid"]] = answer.score
 
+        # If exists, update each array with corresponding metadata
+        if answer.meta["cid"] not in [None, ""]:
+            CIDs.append(answer.meta["cid"])
+        else:
+            CIDs.append("N/A")
+        if answer.meta["url"] not in [None, ""]:
+            source_links.append(answer.meta["url"])
+        else:
+            source_links.append("N/A")
+        if answer.meta["sme"] not in [None, ""]:
+            SMEs.append(answer.meta["sme"])
+            sme_dict[answer.meta["cid"]] = answer.meta["sme"]
+        else:
+            SMEs.append("N/A")
+        if answer.meta["file name"] not in [None, ""]:
+            source_filenames.append(answer.meta["file name"])
+        else:
+            source_filenames.append("N/A")
+
+    # print("Scores:\n", scores)
     # Get the question ID with the highest score, use as primary SME
     max_id = max(scores, key=scores.get)
-    best_sme = SMEs[max_id]
-
-    # Generate Prompt
-    # print("Generating prompt...")
-    # print("PROMPT:", prompt.format(prefix=prefix, question=query, context=context))
-    
-    return prompt.format(prefix=prefix, question=query, context=context), scores, file_names, SMEs, best_sme
+    best_sme = sme_dict[max_id]
+    return prompt.format(prefix=prefix, question=query, context=context), scores, CIDs, source_links, source_filenames, SMEs, best_sme 
     
 
 # Call openai API
 def call_gpt(prompt,scores):
-    print("Calling GPT")
     deployment_name = 'immerse-3-5'
     response = openai.Completion.create(
         engine=deployment_name,
@@ -147,43 +152,60 @@ def call_gpt(prompt,scores):
         max_tokens=500,
         n=1,
         top_p=0.7,
-        temperature=0.3,
-        frequency_penalty=0.5,
-        presence_penalty=0.2
+        temperature=0.1,
+        frequency_penalty=0.0,
+        presence_penalty=0.0
     )
     output = response.choices[0].text.split('\n')[0]
+
   
-    res = re.search("\[(.*)\]", output)
-    if res is None:
-        raise Exception("Error getting QID's")
-    ids = re.split(",", res.group(1))
+    ids = re.findall("CID\d+", output)
+    output = re.sub("CID\d+", "", output)
+    if ids is None:
+        raise Exception("Error getting CID's")
 
     confidence = compute_average(ids,scores)
 
-    output = output[ 0 : output.index("[")]
+    # output = output[ 0 : output.index("[")]
+    output = output[ 0 : output.rindex(".") + 1]
 
     sources = f"\n**Sources:**\n"
     for i in ids:
         sources += f"{i.strip()}\n"
 
-    conf = f"\n**Confidence Score:** {confidence:.2f}%"
+    conf = f"\n\n**Confidence Score:** {confidence:.2f}%"
 
     return output, conf, sources
 
+
+
 def compute_average(ids, scores):
-    print("Computing average")
     total = 0
-    print(scores)
-    print(ids)
     for id in ids:
         id = id.strip()
         total += scores[id]
-    avgscore = total / len(ids)     # convert total score to avg
+    if len(ids) > 0:
+        avgscore = total / len(ids)     # convert total score to avg
+    else:
+        avgscore = 0
     avgscore *= 100                 # convert from decimal to percentage
     return avgscore
-    
 
-### User Interface
+def parse_sme_name(sme):
+    # Split name, remove whitespace
+    name_list = sme.replace('/', ',').split(',')
+    name_list = [name.strip() for name in name_list]
+    # Reorder
+    if len(name_list) > 2:  # handle multiple names case
+        firstnames = [name_list[i] for i in range(1, len(name_list))]
+        lastname = name_list[0]
+        fullname = ' '.join(firstnames) + ' ' + lastname
+    else:  # handle single name case
+        fullname = name_list[1] + ' ' + name_list[0]
+    return fullname
+
+### Setup session storage
+st.session_state.responses = []
 
 # Sidebar contents
 with st.sidebar:
@@ -191,7 +213,7 @@ with st.sidebar:
     st.image('./retrieverLogo.jpg')
     st.markdown('''
     ### About
-    ChatBot to handle questions related to RFPs, Artifacts, & SMEs
+    ChatBot to handle questions related to RFPs, EIS Artifacts, & SMEs
     ''')
     add_vertical_space(5)
     st.write('By: *The Security Sages*')
@@ -210,15 +232,13 @@ def main():
     # Initialize gpt bot
     init_gpt()
 
-    st.header("RFP Retriever")
-
-    # upload file option
-    # file = st.file_uploader("Upload file(s) to be added to this query", type=['pdf', 'xls', 'xlsx', 'docx', 'csv'])
+    # Init UI Slots
+    st.header("Ask a Question:")
     options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
     # selected_option = st.selectbox('Desired answer type:', options=options, index=0)
     selected_option = 'TODO change this'
 
-    query = st.text_input("Ask a question:")
+    query = st.text_input("RFP/Security-Related")
     response_header_slot = st.empty()
     response_slot = st.empty()
     response_copy = st.empty()
@@ -232,57 +252,57 @@ def main():
     emailHeader = st.empty()
     emailContent = st.empty()
 
-    if query:
-        print("Calling query")
-        # Query database
+    if query: # If user submits a question
+        # Query database, generate prompt from related docs, initialize gpt-3
         prediction = query_faiss(query, pipe)
-        
-        # Generate prompt from related docs
-        prompt,scores, source_filenames, SMEs, best_sme = create_prompt(query, prediction, selected_option)
-        # Initialize gpt-3
+        prompt, scores, CIDs, source_links, source_filenames, SMEs, best_sme = create_prompt(query, prediction, selected_option)
         init_gpt()
-        # Feed prompt into gpt
+        # Feed prompt into gpt, store query & output in session state
         output, conf, sources = call_gpt(prompt, scores)
+        st.session_state.responses.append(query)
+        st.session_state.responses.append(output)
+
         ## Format output better for UI (awful hack):
         new_output = ""
         for i in range(0, len(output), 82):
             new_output += output[i:i+82] + "\n"
 
         response_header_slot.markdown(f"**Answer:**\n")
-        response_slot.text(new_output)
+        response_slot.write(new_output)  
         with response_copy.expander('Copy response'):
             st.write("Copied response!")
-            # pyCopy(output) ### COPY OUTPUT, HAS NO ADDED NEWLINES
+            # pc.copy(output) ### COPY OUTPUT, HAS NO ADDED NEWLINES
 
+        # Display confidence, sources, SMEs
         confidence_slot.markdown(conf)
-        sources_table = "\n".join([f"{source}" for source in source_filenames])
-        sources_string = f"**Sources:**\n"
-        sources_header.markdown(sources_string)
-        sources_slot.text(sources_table)
-        # sources_slot.table(sources) # TODO fix here
-
+        sources_header.markdown(f"**Sources:**\n")
+        # create a markdown table
+        markdown_table = "| CID | SME | File Name |\n| --- | --- | --- |\n|"
+        for i in range(len(CIDs)):
+            markdown_table += "[{0}]({1}) | {2} | {3} |\n|".format(CIDs[i], source_links[i], SMEs[i], source_filenames[i])
+        sources_slot.write(markdown_table, unsafe_allow_html=True)
+        best_sme = parse_sme_name(best_sme)
         best_sme_slot.markdown(f"**SME:** {best_sme} ")
-
+        # Draft email option
         with draft_email.expander('Draft an email to the SME'):
             emailHeader.markdown("### Email To SME:")
             init_gpt()
-            prompt = f"Please write a brief and professional business email to {best_sme} asking {query}. Include only the email in your response, and format it nicely"
+            prompt = f"Please write a brief and professional business email to someone named {best_sme} asking {query}. Include only the text of the email in your response, not any sort of email address, and should be formatted nicely. The email should end with the exact string '[Your Name]'."
             response = openai.Completion.create(
                 engine='immerse-3-5',
                 prompt=prompt,
-                temperature=0,
+                temperature=0.3,
                 max_tokens=100,
-                top_p=1,
                 frequency_penalty=0.0,
-                presence_penalty=0.0,
+                presence_penalty=0,
             )
-            print(response.choices)
-            email_response = response.choices[0]
-            print(type(email_response))
-            res1 = email_response.index("Question 2")
+            email_response = response.choices[0].text
+            res1 = email_response.find("[Your Name]")
             if res1 != -1:
-                email_response = email_response[:res1]
+                email_response = email_response[:res1+11]
             emailContent.text(email_response)
+            print(email_response)
+        # print(st.session_state.responses)
 
 if __name__ == "__main__": 
     main()
