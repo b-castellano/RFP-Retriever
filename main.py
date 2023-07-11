@@ -205,11 +205,7 @@ def main():
         pipe = init()
 
         # User's question
-<<<<<<< HEAD
-        query = "Does the Vendor undergo a privacy impact assessment and third party audit of privacy policies and program?"
-=======
         query = "Describe how your company handles data at rest"
->>>>>>> dylan-branch-1
 
         # Initialize document store
         document_store, loaded = init_store()
