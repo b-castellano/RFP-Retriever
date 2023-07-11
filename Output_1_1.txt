@@ -1,0 +1,42 @@
+Question: Does your company perform vulnerability assessments?
+ Response: Yes, UnitedHealth Group performs vulnerability assessments during development and throughout the life of the information system. Penetration tests of UnitedHealth Group’s external web applications are performed annually by third party industry-leading security vendors. Internal penetration testing is done by the Ethical Hacking team. Standard operating procedure is to leverage a risk-based approach to identify specific applications to be included in each annual test. The external vulnerability scanning, performed as part of the penetration tests, includes scans for web application vulnerabilities in accordance with OWASP guidance. In addition to the external network penetration testing, UnitedHealth Group performs periodic Application web-based scanning, and static code analysis for external facing critical business applications. UnitedHealth Group also conducts regular security risks assessment of its physical security environment. The information risk assessment process is developed, maintained, and coordinated by the Enterprise Information Security Organization. The risk assessment process includes defining roles and responsibilities, identifying risks, analyzing risks, evaluating risks, and communicating risk decisions.
+Confidence Score: 95.07%
+Sources:
+CID46467
+CID46514
+CID47144
+CID46608
+
+Question: Have you had any reportable breaches in the last year? If so, please provide a summary.
+ Response: "As a matter of practice, the Company does not disclose details concerning security or privacy incidents and investigations, except to comply with applicable laws, regulations and contractual obligations, including the US Department of Health & Human Services (HHS) breach regulations. Confirmed breaches involving more than 500 individuals are posted to the HHS Breach Website and small breaches are filed on an annual basis with the HHS Office for Civil Rights. Our Company understands it’s responsibility to protect confidential and proprietary information and to maintain availability and integrity of information systems and assets. This commitment is integral to the relationships we have with customers, suppliers, and other stakeholders. The Company also understands the sensitivity and seriousness of an information breach. Our Company is committed to investigate all reported matters. We take any alleged or confirmed incident seriously. When we become aware of a potential or actual incident, a systematic investigation is promptly undertaken to analyze, contain, recover, and implement post-incident management including the review of any customer, member, and regulator notification obligations. Corrective action often includes employee retraining, coaching, and review to determine if disciplinary action is appropriate. We have a trained staff proficient in various disciplines such as Compliance, Privacy, Security, Information Risk Management, Legal Counsel, and executive leadership, who provide expertise during this process as circumstances warrant.
+Confidence Score: 92.68%
+Sources:
+CID46481
+CID46564
+
+Question: Is there an established Business Resiliency & Response program that has been approved by management, communicated to appropriate constituents, and an owner to maintain and review the program?
+ [...
+Confidence Score: 89.82%
+Sources:
+CID46464
+CID47283
+CID46901
+CID47282
+
+Question: Is company information backed up regularly?
+ "Yes, company information must be backed up on a regularly scheduled basis to ensure availability of Company information and limit data loss in the event of an outage. UnitedHealth Group Optum Technology or the business organization information technology groups are responsible for developing, documenting, and implementing backup schedules. This includes outlining the type of backup, interval, storage location, and the number of copies for all Company information under their control. Appropriate business and technical owners are accountable for determining what assets are backed-up per UnitedHealth Group\s Classification Levels. Backups may include but are not limited to: Master files databases Transactions files System programs/utilities, Application software Parameter settings, or System documentation. UnitedHealth Group\s Backup Strategy includes: Systems and databases are backed up daily and weekly. Database backups are retained for 28 days. Deleted files are kept in the system for 90 days. Connection to backup server is across the UnitedHealth Group Wide Area Network, data is written to the alternate location, eliminating the need for third party offsite storage. Backup procedures are further validated by the successful restoration of data (accidental/errant deletions by users), when requested and by regularly scheduled in house and off-site disaster recovery exercises. UnitedHealth Group also utilizes a pre-constructed application specific environment called Stage to periodically test disaster recovery and ad-hoc restores. The results of these tests are confidential to UnitedHealth Group and are not shared outside the company. If required, a conference call can be scheduled with the appropriate Subject Matter Experts to discuss this topic.
+Confidence Score: 89.41%
+Sources:
+CID46487
+CID46710
+CID47233
+CID46604
+
+Question: Does the password policy define specific length and complexity requirements?
+ Response: Yes, the UnitedHealth Groups Identification and Authentication policy and standard provides password strength requirements that include a minimum of three of the following four elements: uppercase characters, lowercase characters, numeric characters, or non-alphanumeric characters.
+Confidence Score: 87.31%
+Sources:
+CID46560
+CID56671
+CID57102
+

@@ -178,11 +178,11 @@ def main():
             # good_query = "Please describe how you secure data at rest."
             # bad_query = "Are encryption keys managed and maintained?"
 
-            count = 1
-            file = open("Output_2.txt", "w")
+            count = 10
+            file = open("Output_2_1.txt", "w")
             for n in range(count):
                 df = pd.read_csv("qna.csv")
-                query = df["question"][1]
+                query = df["question"][n]
                 print(query)
 
                 # Query Database
