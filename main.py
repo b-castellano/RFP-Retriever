@@ -206,7 +206,7 @@ def main():
         pipe = init()
 
         # User's question
-        query = "Does the Vendor develop software?"
+        query = "How does the Vendor assess security of the software developed or acquired?"
 
         # Initialize document store
         document_store, loaded = init_store()
