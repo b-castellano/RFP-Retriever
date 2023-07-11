@@ -205,7 +205,7 @@ def main():
         pipe = init()
 
         # User's question
-        query = "Describe how your company handles data at rest"
+        query = "Does the Vendor require background checks for their staff?. Please explain."
 
         # Initialize document store
         document_store, loaded = init_store()
