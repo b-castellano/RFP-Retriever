@@ -125,11 +125,6 @@ def create_prompt(query, prediction):
             
             alts.append(answer.meta["cid"])
             count+=1
-
-    # Generate Prompt
-    print("Generating prompt...")
-    print("PROMPT:", prompt.format(prefix=prefix, question=query, context=context))
-    
     return prompt.format(prefix=prefix, question=query, context=context), scores, alts
     
 
@@ -218,9 +213,19 @@ def main():
             write_docs(document_store, retriever)
         
         # Get response
-        output = get_response(pipe, query)
 
-        print(f"OUTPUT:\n{output}")
+        while(True):
+            
+            query = input("Please ask a question. Reply 'STOP' to stop:")
+
+            if query == "STOP":
+                break
+
+            output = get_response(pipe, query)
+            print(f"OUTPUT:\n{output}")
+        
+
+       
 
     except:
         
