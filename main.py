@@ -54,7 +54,7 @@ def init_retriever(document_store):
 
 def write_docs(document_store, retriever):
     # Get dataframe with columns "question", "answer" and some custom metadata
-    df = pd.read_csv("qna1.csv")
+    df = pd.read_csv("qna.csv")
     df.fillna(value="", inplace=True)
 
     # Create embeddings for our questions from the FAQs
@@ -151,7 +151,7 @@ def call_gpt(prompt,scores,alts):
         prompt=(f"Original Question: {prompt}\n"
                 "Answer:"
                 ),
-        max_tokens=1000,
+        max_tokens=500,
         n=1,
         top_p=0.7,
         temperature=0.3,
@@ -160,7 +160,8 @@ def call_gpt(prompt,scores,alts):
     )
     output = response.choices[0].text.split('\n')[0]
   
-    print(output)
+    #print(output)
+
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
     output = re.sub("\(?(CID\d+),?\)?", "", output)
@@ -205,7 +206,7 @@ def main():
         pipe = init()
 
         # User's question
-        query = "Describe how your company handles data at rest"
+        query = "Does the Vendor develop software?"
 
         # Initialize document store
         document_store, loaded = init_store()
@@ -220,7 +221,7 @@ def main():
         # Get response
         output = get_response(pipe, query)
 
-        print(f"OUTPUT:\n{output}")
+        print(output)
 
     except:
         
