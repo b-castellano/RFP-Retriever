@@ -98,8 +98,8 @@ def query_faiss(query, pipe):
 # Create prompt template
 def create_prompt(query, prediction):
 
-    if "?" not in query:
-        query += "?"
+    # if "?" not in query:
+    #     query += "?"
 
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
@@ -206,7 +206,7 @@ def main():
         pipe = init()
 
         # User's question
-        query = "How does the Vendor assess security of the software developed or acquired?"
+        query = "Is the Vendor's information security team experienced in handling security incidents and vulnerability management"
 
         # Initialize document store
         document_store, loaded = init_store()
