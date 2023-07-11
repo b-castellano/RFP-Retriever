@@ -193,7 +193,7 @@ def main():
         pipe = init()
 
         # User's question
-        query = "Does your company perform vulnerability assessments"
+        query = "hello"
 
         # Initialize document store
         document_store, loaded = init_store()
