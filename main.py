@@ -105,7 +105,7 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a concise response. List the question IDs of the answers you referenced to formulate your response."""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a concise response. Just at the end, list the question IDs of the answers you referenced to formulate your response."""
 
     # Create context
     context = ""
@@ -193,7 +193,7 @@ def main():
         pipe = init()
 
         # User's question
-        query = "Does the Vendor undergo a privacy impact assessment and third party audit of privacy policies and program?"
+        query = "Does your company perform vulnerability assessments"
 
         # Initialize document store
         document_store, loaded = init_store()
