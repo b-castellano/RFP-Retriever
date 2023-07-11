@@ -67,10 +67,14 @@ def query_faiss(query, pipe):
     # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
     # if query == "STOP":
     #     break
-    return pipe.run(query=query, params={"Retriever": {"top_k": 4}})
+    return pipe.run(query=query, params={"Retriever": {"top_k": 10}})
 
 # Create prompt template
 def create_prompt(query, prediction):
+
+    if "?" not in query:
+        query += "?"
+
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
@@ -111,24 +115,24 @@ def call_gpt(prompt,scores):
     deployment_name = 'immerse-3-5'
     response = openai.Completion.create(
         engine=deployment_name,
-        prompt=(f"Question: {prompt}\n"
+        prompt=(f"Original Question: {prompt}\n"
                 "Answer:"
                 ),
         max_tokens=500,
         n=1,
         top_p=0.7,
-        temperature=0.1,
+        temperature=0.3,
         frequency_penalty=0.0,
         presence_penalty=0.0
     )
     output = response.choices[0].text.split('\n')[0]
     
-    print(output)
-    
+  
     ids = re.findall("CID\d+", output)
     output = re.sub("CID\d+", "", output)
-    if ids is None:
-        raise Exception("Error getting QID's")
+
+    if ids is None or len(ids) == 0:
+        raise Exception("Error getting CID's")
 
     confidence = compute_average(ids,scores)
     output = output[ 0 : output.rindex(".") + 1]
@@ -159,7 +163,7 @@ def main():
 
     try:
         # User's question
-        query = "How often does UHG perform internal audits?"
+        query = "How often is UHG audited"
 
         # Initialize document store
         document_store, loaded = init_store()
