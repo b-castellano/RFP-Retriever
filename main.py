@@ -54,7 +54,7 @@ def init_retriever(document_store):
 
 def write_docs(document_store, retriever):
     # Get dataframe with columns "question", "answer" and some custom metadata
-    df = pd.read_csv("qna.csv")
+    df = pd.read_csv("qna1.csv")
     df.fillna(value="", inplace=True)
 
     # Create embeddings for our questions from the FAQs
@@ -92,16 +92,20 @@ def query_faiss(query, pipe):
     # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
     # if query == "STOP":
     #     break
-    return pipe.run(query=query, params={"Retriever": {"top_k": 4}})
+    return pipe.run(query=query, params={"Retriever": {"top_k": 10}})
 
 
 # Create prompt template
 def create_prompt(query, prediction):
+
+    if "?" not in query:
+        query += "?"
+
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of data in the form of 'question ID, answer'.Use the answers within the context to formulate a concise response. At the end of your entire response, output the question IDs of the answers you referenced"""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions in a professional manner. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to formulate a concise response. List the question IDs of the answers you referenced to formulate your response."""
 
     # Create context
     context = ""
@@ -110,11 +114,15 @@ def create_prompt(query, prediction):
         newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
         # Remove docs 
         context += "Question ID: {ID}, Answer: {answer}\n".format(
-            ID=answer.meta["question ID"], answer=newAnswer)
+            ID=answer.meta["cid"], answer=newAnswer)
         
         # Add ID-Score pair to dict
-        scores[answer.meta["question ID"]] = answer.score
-    print (prompt.format(prefix=prefix, question=query, context=context))
+        scores[answer.meta["cid"]] = answer.score
+
+    # Generate Prompt
+    print("Generating prompt...")
+    print("PROMPT:", prompt.format(prefix=prefix, question=query, context=context))
+    
     return prompt.format(prefix=prefix, question=query, context=context), scores
     
 
@@ -133,27 +141,28 @@ def call_gpt(prompt,scores):
     deployment_name = 'immerse-3-5'
     response = openai.Completion.create(
         engine=deployment_name,
-        prompt=(f"Question: {prompt}\n"
+        prompt=(f"Original Question: {prompt}\n"
                 "Answer:"
                 ),
         max_tokens=500,
         n=1,
         top_p=0.7,
-        temperature=0.7,
-        frequency_penalty=0.5,
-        presence_penalty=0.2
+        temperature=0.3,
+        frequency_penalty=0.0,
+        presence_penalty=0.0
     )
     output = response.choices[0].text.split('\n')[0]
+    print(output)
   
-    res = re.search("\[(.*)\]", output)
-    
-    if res is None:
-        raise Exception("Error getting QID's")
-    ids = re.split(",", res.group(1))
-    
-    confidence = compute_average(ids,scores)
+    ids = re.findall("CID\d+", output)
+    output = re.sub("CID\d+", "", output)
 
-    output = output[ 0 : output.index("[")]
+    if ids is None or len(ids) == 0:
+        raise Exception("Error getting CID's")
+
+    confidence = compute_average(ids,scores)
+    output = output[ 0 : output.rindex(".") + 1]
+   
     output += f"\nConfidence Score: {confidence:.2f}%"
     output += f"\nSources:\n"
     for i in ids:
@@ -184,7 +193,17 @@ def main():
         pipe = init()
 
         # User's question
-        query = "What is Optums policy on storing important documents?"
+        query = "Does the Vendor undergo a privacy impact assessment and third party audit of privacy policies and program?"
+
+        # Initialize document store
+        document_store, loaded = init_store()
+    
+        # Initialize retriever
+        retriever = init_retriever(document_store)
+
+        # If new store, add documents and embeddings
+        if not loaded:
+            write_docs(document_store, retriever)
         
         # Get response
         output = get_response(pipe, query)
