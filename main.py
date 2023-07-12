@@ -98,14 +98,11 @@ def query_faiss(query, pipe):
 # Create prompt template
 def create_prompt(query, prediction):
 
-    if "?" not in query:
-        query += "?"
-
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. Just at the end, list the question IDs of the answers you referenced to formulate your response."""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. Just at the end, list the question IDs of the answers you referenced to formulate your response. If you can not find the answer in the provided context, state 'Sorry, I cannot answer that question.'"""
 
     # Create context
     context = ""
@@ -154,8 +151,7 @@ def call_gpt(prompt,scores,alts):
         presence_penalty=0.0
     )
     output = response.choices[0].text.split('\n')[0]
-  
-    print(output)
+
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
     output = re.sub("\(?(CID\d+),?\)?", "", output)
@@ -165,7 +161,7 @@ def call_gpt(prompt,scores,alts):
         alternates = ""
         for i in alts:
             alternates += f"{i.strip()}\n"
-        return f"{output}\nSorry, the exact sources are not known, but here are some possibilities:\n{alternates}"
+        return f"{output}\nHere are some possible sources to reference:\n{alternates}"
 
     confidence = compute_average(ids,scores)
     output = output[ 0 : output.rindex(".") + 1]
@@ -199,9 +195,6 @@ def main():
         # Initialize FAISS store and create pipe instance
         pipe = init()
 
-        # User's question
-        query = "Is the Vendor's information security team experienced in handling security incidents and vulnerability management?"
-
         # Initialize document store
         document_store, loaded = init_store()
     
@@ -216,6 +209,7 @@ def main():
 
         while(True):
             
+            # Users question
             query = input("Please ask a question. Reply 'STOP' to stop:")
 
             if query == "STOP":
