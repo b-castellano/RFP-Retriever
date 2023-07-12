@@ -172,7 +172,7 @@ def call_gpt(prompt,scores, alts):  # returns None as confidence if no sources u
         alternates = ""
         for i in alts:
             alternates += f"{i.strip()}\n"
-        return f"{output}\nHere are some possible sources to reference:\n{alternates}", "**Confidence:** N/A"
+        return f"{output}\nBelow are some possible sources for reference", "**Confidence:** N/A"
 
     output = output[ 0 : output.rindex(".") + 1]
     confidence = compute_average(ids,scores)
