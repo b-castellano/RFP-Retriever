@@ -5,11 +5,9 @@ from tqdm.auto import tqdm  # progress bar
 from datasets import load_dataset
 import pandas as pd
 import numpy as np
-import torch
 import openai
 import traceback
 import os
-import random
 import re
 import json
 # import pyperclip as pc
@@ -174,7 +172,7 @@ def call_gpt(prompt,scores, alts):  # returns None as confidence if no sources u
         alternates = ""
         for i in alts:
             alternates += f"{i.strip()}\n"
-        return f"{output}\nHere are some possible sources to reference:\n{alternates}", "**No were used in the creation of this answer**"
+        return f"{output}\nHere are some possible sources to reference:\n{alternates}", "**Confidence:** N/A"
 
     output = output[ 0 : output.rindex(".") + 1]
     confidence = compute_average(ids,scores)
@@ -202,40 +200,20 @@ def parse_sme_name(sme):
     l = len(name_list)
     # Reorder
     if l > 2:  # handle multiple names case
-        firstnames = [name_list[i] for i in range(1, len(name_list))]
+        firstnames = [name_list[i] for i in range(1, len(name_list)-1)]
+        firstname = ' '.join(firstnames)
+        middlename = name_list[-1].replace('(', '\"').replace(')', '\"').strip()
         lastname = name_list[0]
-        fullname = ' '.join(firstnames) + ' ' + lastname
-    elif l == 1 :  # handle Firstname Lastname case
-        fullname = name_list[0]
-    elif l == 0:
+        fullname = firstname + ' ' + middlename + ' ' + lastname
+    elif l == 2:  # handle Firstname Lastname case
+        firstname = name_list[1].replace('(', '\"').replace(')', '\"').strip()
+        lastname = name_list[0]
+        fullname = firstname + ' ' + lastname
+    elif l == 1:
         sme = "STRANGE SME NAME. INSPECT ORIGINAL DOCUMENT"
     else:
         fullname = name_list[1] + ' ' + name_list[0]
     return fullname
-
-# def parse_sme_name(sme):
-#     if sme == "N/A":
-#         return "<insert name here>"
-#     # Split name, remove whitespace
-#     name_list = sme.replace('/', ',').split(',')
-#     name_list = [name.strip() for name in name_list]
-#     l = len(name_list)
-#     # Reorder
-#     if l > 2:  # handle multiple names case
-#         firstnames = [name_list[i] for i in range(1, len(name_list)-1)]
-#         firstname = ' '.join(firstnames)
-#         middlename = name_list[-1].replace('(', '').replace(')', '').strip()
-#         lastname = name_list[0]
-#         fullname = firstname + ' ' + middlename + ' ' + lastname
-#     elif l == 2:  # handle Firstname Lastname case
-#         firstname = name_list[1].replace('(', '').replace(')', '').strip()
-#         lastname = name_list[0]
-#         fullname = firstname + ' ' + lastname
-#     elif l == 1:
-#         sme = "STRANGE SME NAME. INSPECT ORIGINAL DOCUMENT"
-#     else:
-#         fullname = name_list[1] + ' ' + name_list[0]
-#     return fullname
 
 def init_gpt():
     with open('gpt-config.json') as user_file:
