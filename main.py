@@ -102,7 +102,7 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. Just at the end, list the question IDs of the answers you referenced to formulate your response. If you can not find the answer in the provided context, state 'Sorry, I cannot answer that question.'"""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner with explanation. Just at the end, list the question IDs of the answers you referenced to formulate your response."""
 
     # Create context
     context = ""
@@ -151,7 +151,7 @@ def call_gpt(prompt,scores,alts):
         presence_penalty=0.0
     )
     output = response.choices[0].text.split('\n')[0]
-
+    print(output)
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
     output = re.sub("\(?(CID\d+),?\)?", "", output)
