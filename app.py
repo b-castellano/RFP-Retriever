@@ -205,22 +205,21 @@ def main():
 
     # Init UI Slots
     st.header("Ask a Question:")
-    # file_upload = st.checkbox("Upload questions from file")
-    # if file_upload:
-    #     questions_file = st.file_uploader("Upload a CSV or Excel file (each cell a question, max 50 questions)", type=['csv', 'xlsx', 'txt'])
-    #     if questions_file is not None:
-    #         questions, errCode = utils.read_questions(questions_file)
-    #         if errCode==1:
-    #             st.error("Emtpy file")
-    #         elif errCode ==2:
-    #             st.error("File type not supported. Please upload a CSV or Excel file.")
-    #         else:
-    #             file_uploaded=True
-    #             questions = questions[:50]
-    #         print(questions)
+    file_upload = st.checkbox("Upload questions from file")
+    if file_upload:
+        questions_file = st.file_uploader("Upload a CSV or Excel file (each cell a question, max 50 questions)", type=['csv', 'xlsx', 'txt'])
+        if questions_file is not None:
+            questions, errCode = utils.read_questions(questions_file)
+            if errCode==1:
+                st.error("Emtpy file")
+            elif errCode ==2:
+                st.error("File type not supported. Please upload a CSV or Excel file.")
+            else:
+                file_uploaded=True
+                questions = questions[:50]
+            print(questions)
     options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
-    # selected_option = st.selectbox('Desired answer type:', options=options, index=0)
-    selected_option = 'TODO change this'
+    selected_option = st.selectbox('Desired answer type:', options=options, index=0)
 
     query = st.text_input("RFP/Security-Related")
     response_header_slot = st.empty()
@@ -236,7 +235,7 @@ def main():
     emailHeader = st.empty()
     emailContent = st.empty()
 
-    if query: # If user submits a question
+    if query or file_uploaded: # If user submits a question
         try:
             # Query database, generate prompt from related docs, initialize gpt-3
             output, conf, prompt, CIDs, source_links, source_filenames, SMEs, best_sme = get_response(pipe, query) 
@@ -261,6 +260,7 @@ def main():
             sources_slot.write(markdown_table, unsafe_allow_html=True)
             best_sme = utils.parse_sme_name(best_sme)
             best_sme_slot.markdown(f"**SME:** {best_sme} ")
+            file_uploaded=False
             # Draft email option
             with draft_email.expander('Draft an email to the SME'):
                 if draft_email.expander:
