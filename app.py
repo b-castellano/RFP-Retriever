@@ -85,7 +85,7 @@ def get_response(pipe, query):
     # Generate prompt from related docs
     prompt, scores, alts, CIDs, source_links, source_filenames, SMEs, best_sme = create_prompt(query, prediction)
     output, conf = call_gpt(prompt, scores, alts)
-    return output, conf, prompt, CIDs, source_links, source_filenames, SMEs, best_sme
+    return output, conf, CIDs, source_links, source_filenames, SMEs, best_sme
 
 def query_faiss(query, pipe):
     return pipe.run(query=query, params={"Retriever": {"top_k": 5}})
@@ -171,6 +171,24 @@ def call_gpt(prompt,scores, alts):  # returns None as confidence if no sources u
     conf_str = f"\n\n**Confidence Score:** {confidence:.2f}%"
     return output, conf_str
 
+def email_sme(query, best_sme, email_header, email_content):
+    print("Drafting email...")
+    email_header.markdown("### Email To SME:")
+    prompt = f"Please write a brief and professional business email to someone named {best_sme} asking {query}. Include only the text of the email in your response, not any sort of email address, and should be formatted nicely. The email should start with Subject: __ \n\nand end with the exact string \n\n'[Your Name]'."
+    response = openai.Completion.create(
+        engine='immerse-3-5',
+        prompt=prompt,
+        temperature=0.3,
+        max_tokens=400,
+        frequency_penalty=0.0,
+        presence_penalty=0,
+    )
+    email_response = response.choices[0].text
+    subject_index = email_response.find("Subject:")
+    name_index = email_response.find("[Your Name]")
+    email_response = email_response[subject_index:name_index+len("[Your Name]")].strip()
+    email_content.write(email_response)
+
 def init_gpt():
     with open('gpt-config.json') as user_file:
         content = json.load(user_file)
@@ -201,13 +219,14 @@ with st.sidebar:
 def main():
     # Initialize pipline
     pipe = init()
-    file_uploaded=False
+    questions=[]
 
     # Init UI Slots
     st.header("Ask a Question:")
+
     file_upload = st.checkbox("Upload questions from file")
     if file_upload:
-        questions_file = st.file_uploader("Upload a CSV or Excel file (each cell a question, max 50 questions)", type=['csv', 'xlsx', 'txt'])
+        questions_file = st.file_uploader("Upload a CSV or Excel file (each cell a question, max 50 questions)", type=['csv', 'xlsx'])
         if questions_file is not None:
             questions, errCode = utils.read_questions(questions_file)
             if errCode==1:
@@ -215,13 +234,14 @@ def main():
             elif errCode ==2:
                 st.error("File type not supported. Please upload a CSV or Excel file.")
             else:
-                file_uploaded=True
                 questions = questions[:50]
             print(questions)
+
     options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
     selected_option = st.selectbox('Desired answer type:', options=options, index=0)
-
     query = st.text_input("RFP/Security-Related")
+    submitted = st.button("Submit")
+
     response_header_slot = st.empty()
     response_slot = st.empty()
     response_copy = st.empty()
@@ -232,62 +252,84 @@ def main():
     best_sme_slot = st.empty()
 
     draft_email = st.empty()
-    emailHeader = st.empty()
-    emailContent = st.empty()
+    email_header = st.empty()
+    email_content = st.empty()
 
-    if query or file_uploaded: # If user submits a question
+
+    if query or submitted: # If user submits a question
         try:
-            # Query database, generate prompt from related docs, initialize gpt-3
-            output, conf, prompt, CIDs, source_links, source_filenames, SMEs, best_sme = get_response(pipe, query) 
-            CIDs, source_links, source_filenames, SMEs = utils.remove_duplicates(CIDs, source_links, source_filenames, SMEs)
-            # Feed prompt into gpt, store query & output in session state
-            st.session_state.responses.append(query)
-            st.session_state.responses.append(output)
-            
-            response_header_slot.markdown(f"**Answer:**\n")
-            response_slot.write(output)  
-            with response_copy.expander('Copy response'):
-                st.write("Copied response!")
-                pc.copy(output) 
+            questions.append(query)
+            if len(questions) == 1: # single question case
+                # Query database, generate prompt from related docs, initialize gpt-3
+                output, conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_response(pipe, questions[0]) 
+                CIDs, source_links, source_filenames, SMEs = utils.remove_duplicates(CIDs, source_links, source_filenames, SMEs)
+                # Feed prompt into gpt, store query & output in session state
+                st.session_state.responses.append(questions[0])
+                st.session_state.responses.append(output)
+                response_header_slot.markdown(f"**Answer:**\n")
+                response_slot.write(output)  
+                with response_copy.expander('Copy response'):
+                    st.write("Copied response!")
+                    pc.copy(output) 
 
-            # Display confidence, sources, SMEs
-            confidence_slot.markdown(conf)
-            sources_header.markdown(f"**Sources:**")
-            # create a markdown table
-            markdown_table = "| CID | SME | File Name |\n| --- | --- | --- |\n|"
-            for i in range(len(CIDs)):
-                markdown_table += "[{0}]({1}) | {2} | {3} |\n|".format(CIDs[i], source_links[i], SMEs[i], source_filenames[i])
-            sources_slot.write(markdown_table, unsafe_allow_html=True)
-            best_sme = utils.parse_sme_name(best_sme)
-            best_sme_slot.markdown(f"**SME:** {best_sme} ")
-            file_uploaded=False
-            # Draft email option
-            with draft_email.expander('Draft an email to the SME'):
-                if draft_email.expander:
-                    print("Drafting email...")
-                    emailHeader.markdown("### Email To SME:")
-                    prompt = f"Please write a brief and professional business email to someone named {best_sme} asking {query}. Include only the text of the email in your response, not any sort of email address, and should be formatted nicely. The email should start with Subject: __ \n\nand end with the exact string \n\n'[Your Name]'."
-                    response = openai.Completion.create(
-                        engine='immerse-3-5',
-                        prompt=prompt,
-                        temperature=0.3,
-                        max_tokens=400,
-                        frequency_penalty=0.0,
-                        presence_penalty=0,
-                    )
-                    email_response = response.choices[0].text
-                    print(email_response)
-                    subject_index = email_response.find("Subject:")
-                    name_index = email_response.find("[Your Name]")
-                    email_response = email_response[subject_index:name_index+len("[Your Name]")].strip()
-                    emailContent.write(email_response)
+                # Display confidence, sources, SMEs
+                confidence_slot.markdown(conf)
+                sources_header.markdown(f"**Sources:**")
+                # create a markdown table
+                markdown_table = "| CID | SME | File Name |\n| --- | --- | --- |\n|" 
+                for i in range(len(CIDs)):
+                    markdown_table += "[{0}]({1}) | {2} | {3} |\n|".format(CIDs[i], source_links[i], SMEs[i], source_filenames[i]) 
+                sources_slot.write(markdown_table, unsafe_allow_html=True)
+                best_sme = utils.parse_sme_name(best_sme)
+                best_sme_slot.markdown(f"**SME:** {best_sme} ")
+
+                # Draft email option
+                with draft_email.expander('Draft an email to the SME'):
+                    if draft_email.expander:
+                        email_sme(query, best_sme, email_header, email_content)
+                questions.clear()
+            elif len(questions) > 1:
+                # Query database, generate prompt from related docs, initialize gpt-3
+                responses = []
+                for i, question in enumerate(questions):
+                    output, conf, CIDs_i, source_links_i, source_filenames_i, SMEs_i, best_sme = get_response(pipe, question) 
+                    CIDs_i, source_links_i, source_filenames_i, SMEs_i = utils.remove_duplicates(CIDs_i, source_links_i, source_filenames_i, SMEs_i)
+                    # Feed prompt into gpt, store query & output in session state
+                    responses.append([question, output])
+                    CIDs.append(CIDs_i)
+                    source_links.append(source_links_i)
+                    source_filenames.append(source_filenames_i)
+                    SMEs.append(SMEs_i)
+
+                response_header_slot.markdown(f"**Answers:**\n")
+                for i in range(len(responses)):
+                    response_slot.write(f"**{responses[i][0]}**\n{responses[i][1]}\n")
+
+            else:
+                st.error("No questions detected")
+
+            ### TODO FIX CIDS FROM ELIF AND TURN INTO THIS
+            # Button to download answers into csv/excel
+            if st.button("Download Questions and Answers"):
+                file_type = st.radio("Select a file type (excel will contain sources & confidence data)", ["Excel", "CSV"])
+                if file_type == "Excel":
+                    df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Souces": sources})
+                    excel_file = df.to_excel("questions_and_answers.xlsx", index=False)
+                    st.download_button("Download Excel", excel_file)
+
+                elif file_type == "CSV":
+                    qa_pairs = [item for pair in zip(questions, answers) for item in pair]
+                    df = pd.DataFrame({"Questions and Answers": qa_pairs})
+                    csv_file = df.to_csv("questions_and_answers.csv", index=False)
+                    st.download_button("Download CSV", csv_file)
+
+
         except:
             print("Error initializing var")
             traceback.print_exc()
-        # print(st.session_state.responses)
+        print(st.session_state.responses)  
+
+
 
 if __name__ == "__main__": 
     main()
-
-
-
