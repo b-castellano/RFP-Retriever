@@ -199,7 +199,7 @@ def main():
         pipe = init()
 
         # User's question
-        query = "Describe how your company handles data at rest"
+        #query = "Does the Vendor develop software?"
 
         # Initialize document store
         document_store, loaded = init_store()
@@ -218,12 +218,16 @@ def main():
             #good_query = "Please describe how you secure data at rest."
             #bad_query = "Are encryption keys managed and maintained?"
 
-            count = 3
-            file = open("Output_5.txt", "w")
+            count = 10
+            file = open("Output/Output_test_5.txt", "w")
             for n in range(count):
-                #df = pd.read_csv("qna.csv")
+                df = pd.read_csv("qna.csv")
                 #query = df["question"][n]
-                print(query)
+                #print(query)
+
+                query = "For Live and Work Well, Is the application compatible with Active Directory ADFS?"
+                if n > 5:
+                    query = "For Live and Work Well, Does Key management takes into account the data classification and regulatory sensitivity of the data being stored in the Cloud / Multi‐tenant environment?"
 
                 # Get response
                 output = get_response(pipe, query)
