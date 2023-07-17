@@ -11,6 +11,7 @@ import re
 import json
 import pyperclip as pc
 import utils
+import threading
 
 # Streamlit
 import streamlit as st
@@ -126,6 +127,7 @@ def create_prompt(query, prediction):  ### may add a parameter "Short", "Yes/No"
             sme_dict[answer.meta["cid"]] = answer.meta["sme"]
         else:
             SMEs.append("N/A")
+            sme_dict[answer.meta["cid"]] = "N/A"
         if answer.meta["file name"] not in [None, ""]:
             source_filenames.append(answer.meta["file name"])
         else:
@@ -133,7 +135,9 @@ def create_prompt(query, prediction):  ### may add a parameter "Short", "Yes/No"
         if count < 3:
             alts.append(answer.meta["cid"])
             count+=1
-    # print("Scores:\n", scores)
+    print(SMEs)
+    print(CIDs)
+    print(sme_dict)
     # Get the question ID with the highest score, use as primary SME
     max_id = max(scores, key=scores.get)
     best_sme = sme_dict[max_id]
@@ -168,7 +172,7 @@ def call_gpt(prompt,scores, alts):  # returns None as confidence if no sources u
 
     output = output[ 0 : output.rindex(".") + 1]
     confidence = utils.compute_average(ids,scores)
-    conf_str = f"\n\n**Confidence Score:** {confidence:.2f}%"
+    conf_str = f"\n\n**Confidence:** {confidence:.2f}%"
     return output, conf_str
 
 def email_sme(query, best_sme, email_header, email_content):
@@ -188,6 +192,19 @@ def email_sme(query, best_sme, email_header, email_content):
     name_index = email_response.find("[Your Name]")
     email_response = email_response[subject_index:name_index+len("[Your Name]")].strip()
     email_content.write(email_response)
+
+def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i):
+    question = questions[i]
+    output, conf, CIDs_i, source_links_i, source_filenames_i, SMEs_i, best_sme = get_response(pipe, question)
+    CIDs_i, source_links_i, source_filenames_i, SMEs_i = utils.remove_duplicates(CIDs_i, source_links_i, source_filenames_i, SMEs_i)
+    # Feed prompt into gpt, store query & output in session state
+    answers[i] = output
+    CIDs[i] = CIDs_i
+    source_links[i] = source_links_i
+    source_filenames[i] = source_filenames_i
+    SMEs[i] = SMEs_i
+    confidences[i] = conf
+    print(f"Thread {threading.get_ident()} finished processing question {i+1}")
 
 def init_gpt():
     with open('gpt-config.json') as user_file:
@@ -235,7 +252,7 @@ def main():
                 st.error("File type not supported. Please upload a CSV or Excel file.")
             else:
                 questions = questions[:50]
-            print(questions)
+            # print(questions)
 
     options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
     selected_option = st.selectbox('Desired answer type:', options=options, index=0)
@@ -289,47 +306,60 @@ def main():
                         email_sme(query, best_sme, email_header, email_content)
                 questions.clear()
             elif len(questions) > 1:
-                # Query database, generate prompt from related docs, initialize gpt-3
-                responses = []
-                for i, question in enumerate(questions):
-                    output, conf, CIDs_i, source_links_i, source_filenames_i, SMEs_i, best_sme = get_response(pipe, question) 
-                    CIDs_i, source_links_i, source_filenames_i, SMEs_i = utils.remove_duplicates(CIDs_i, source_links_i, source_filenames_i, SMEs_i)
-                    # Feed prompt into gpt, store query & output in session state
-                    responses.append([question, output])
-                    CIDs.append(CIDs_i)
-                    source_links.append(source_links_i)
-                    source_filenames.append(source_filenames_i)
-                    SMEs.append(SMEs_i)
+                # Initialize empty lists for answers, CIDs, source_links, source_filenames, SMEs, and confidences
+                answers, CIDs, source_links, source_filenames, SMEs, confidences = [], [], [], [], [], []
+
+                threads = []
+                for i, question in enumerate(questions):  # mutlithread GPT queries
+                    # Append empty strings and lists to answers, CIDs, source_links, source_filenames, and SMEs
+                    answers.append("")
+                    CIDs.append([])
+                    source_links.append([])
+                    source_filenames.append([])
+                    SMEs.append([])
+                    confidences.append(0)
+                    # Start a new thread for each question
+                    thread = threading.Thread(target=get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i))
+                    thread.start()
+                    threads.append(thread)
+                # Wait for threads
+                for thread in threads:
+                    thread.join()
 
                 response_header_slot.markdown(f"**Answers:**\n")
-                for i in range(len(responses)):
-                    response_slot.write(f"**{responses[i][0]}**\n{responses[i][1]}\n")
+                sources_header.markdown(f"**Sources:**")
+                # create a markdown table
+                markdown_table = "| Question | Answer | Confidence |\n| --- | --- | --- |\n|" 
+                for i in range(len(CIDs)):
+                    markdown_table += "{0} | {1} | {2} |\n|".format(questions[i], answers[i], confidences[i]) 
+                sources_slot.write(markdown_table, unsafe_allow_html=True)
+
+                # Button to download answers into csv/excel
+                if st.button("Download Questions and Answers"):
+                    file_type = st.radio("Select a file type (excel will contain sources & confidence data)", ["Excel", "CSV"])
+                    if file_type == "Excel":
+                        df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
+                        print(df)
+                        excel_file = df.to_excel("questions_and_answers.xlsx", index=False)
+                        st.download_button("Download Excel", excel_file)
+
+                    elif file_type == "CSV":
+                        qa_pairs = [item for pair in zip(questions, answers) for item in pair]
+                        df = pd.DataFrame({"Questions and Answers": qa_pairs})
+                        print(df)
+                        csv_file = df.to_csv("questions_and_answers.csv", index=False)
+                        st.download_button("Download CSV", csv_file)
 
             else:
                 st.error("No questions detected")
 
-            ### TODO FIX CIDS FROM ELIF AND TURN INTO THIS
-            # Button to download answers into csv/excel
-            if st.button("Download Questions and Answers"):
-                file_type = st.radio("Select a file type (excel will contain sources & confidence data)", ["Excel", "CSV"])
-                if file_type == "Excel":
-                    df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Souces": sources})
-                    excel_file = df.to_excel("questions_and_answers.xlsx", index=False)
-                    st.download_button("Download Excel", excel_file)
-
-                elif file_type == "CSV":
-                    qa_pairs = [item for pair in zip(questions, answers) for item in pair]
-                    df = pd.DataFrame({"Questions and Answers": qa_pairs})
-                    csv_file = df.to_csv("questions_and_answers.csv", index=False)
-                    st.download_button("Download CSV", csv_file)
-
-
         except:
             print("Error initializing var")
             traceback.print_exc()
-        print(st.session_state.responses)  
+        # print(st.session_state.responses)  
 
 
 
 if __name__ == "__main__": 
     main()
+
