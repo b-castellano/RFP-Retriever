@@ -103,7 +103,7 @@ def create_prompt(query, prediction):  ### may add a parameter "Short", "Yes/No"
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. Explain your reasoning unless otherwise specified. Just at the end, list the question IDs of the answers you referenced to formulate your response. If you can not find the answer in the provided context, state 'Sorry, I cannot answer that question.'"""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner, and, at the end of your whole response, list the question IDs of the answers you referenced in this form (..,..,..). If you do not have enough information to answer the question, just state that you cannot answer the question."""
 
     # Create context
     context = ""
@@ -165,7 +165,8 @@ def call_gpt(prompt,scores, alts):  # returns None as confidence if no sources u
     output = response.choices[0].text.split('\n')[0]
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
-    output = re.sub("\(?(CID\d+),?\)?", "", output)
+    output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
+    output = re.sub("[ ]{2,}", " ", output)
 
     # Handle case where gpt doesn't output sources in prompt
     if ids is None or len(ids) == 0:
