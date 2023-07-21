@@ -103,7 +103,7 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner with explanation. List the question IDs of the answers you referenced to formulate your response."""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. List the question IDs of the answers you referenced. If you do not have enough information to answer the quesion, just state you cannot answer the question."""
 
     # Create context
     context = ""
@@ -133,20 +133,13 @@ def init_gpt():
         content = json.load(user_file)
 
     if content is None:
-        raise Exception("Error reading config")
+        raise Exception("Error reading gpt-config")
 
     openai.api_key = content["api_key"]
     openai.api_type = content["api_type"] 
     openai.api_version = content["api_version"]
     openai.api_base = content["api_base"]
-    
 
-
-    # openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
-    # openai.api_type = "azure"
-    # openai.api_version = "2023-06-01-preview"
-    # openai.api_base = "https://immerse.openai.azure.com/"
-    
 
 # Call openai API
 def call_gpt(prompt,scores,alts):
@@ -170,7 +163,8 @@ def call_gpt(prompt,scores,alts):
     print(output)
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
-    output = re.sub("\(?(CID\d+),?\)?", "", output)
+    output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
+    output = re.sub("[ ]{2,}", " ", output)
 
     # Handle case where gpt doesn't output sources in prompt
     if ids is None or len(ids) == 0:
