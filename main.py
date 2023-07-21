@@ -1,9 +1,9 @@
 import pandas as pd
 from datasets import load_dataset
-import torch
-import openai
 import traceback
 import re
+
+import openai
 
 from haystack.nodes import EmbeddingRetriever
 from haystack import Document
@@ -98,14 +98,11 @@ def query_faiss(query, pipe):
 # Create prompt template
 def create_prompt(query, prediction):
 
-    # if "?" not in query:
-    #     query += "?"
-
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. Just at the end, list the question IDs of the answers you referenced to formulate your response."""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner with explanation. List the question IDs of the answers you referenced to formulate your response."""
 
     # Create context
     context = ""
@@ -125,43 +122,45 @@ def create_prompt(query, prediction):
             
             alts.append(answer.meta["cid"])
             count+=1
-
-    # Generate Prompt
-    print("Generating prompt...")
-    print("PROMPT:", prompt.format(prefix=prefix, question=query, context=context))
-    
     return prompt.format(prefix=prefix, question=query, context=context), scores, alts
     
 
 
 def init_gpt():
 
-    openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
-    openai.api_type = "azure"
-    openai.api_version = "2023-06-01-preview"
-    openai.api_base = "https://immerse.openai.azure.com/"
+
+    openai.api_key = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6Ii1LSTNROW5OUjdiUm9meG1lWm9YcWJIWkdldyIsImtpZCI6Ii1LSTNROW5OUjdiUm9meG1lWm9YcWJIWkdldyJ9.eyJhdWQiOiJodHRwczovL2NvZ25pdGl2ZXNlcnZpY2VzLmF6dXJlLmNvbSIsImlzcyI6Imh0dHBzOi8vc3RzLndpbmRvd3MubmV0L2RiMDVmYWNhLWM4MmEtNGI5ZC1iOWM1LTBmNjRiNjc1NTQyMS8iLCJpYXQiOjE2ODk5NTc5ODYsIm5iZiI6MTY4OTk1Nzk4NiwiZXhwIjoxNjg5OTYzNDE5LCJhY3IiOiIxIiwiYWlvIjoiQVZRQXEvOFRBQUFBN3MvSGRJM1FXdlAzTUl6eXo5a0ZqTFpQR0UyTmM1MnJmYzlidTZ6cTVydmV6TWVXQjRIaEpLYUlyMVVJQTNyTEc3eE5nUkFIMHBVT2JtNEQ3NC9lcHBMOGdtSXlGSm8zNnNVczN2a1g1Q1U9IiwiYW1yIjpbInB3ZCIsIndpYSIsIm1mYSJdLCJhcHBpZCI6IjE4YTY2ZjVmLWRiZGYtNGMxNy05ZGQ3LTE2MzQ3MTJhOWNiZSIsImFwcGlkYWNyIjoiMiIsImZhbWlseV9uYW1lIjoiSG91bGUiLCJnaXZlbl9uYW1lIjoiRHlsYW4iLCJncm91cHMiOlsiM2ZkMmM4MGQtYzVkYS00NTI0LTgxMzQtYmY4YzEyNDc5MjMxIiwiOTYwMmJhMWUtZjc5OS00Yzg4LTkxNmEtMTRhYjZjNmI1YjlhIiwiZjVhNmRkMjUtODZjOS00OGMzLWJiMjYtNTczODJlYzNhMWE4IiwiZjQzYzNjMmQtZjkwZC00OWIyLWI2OTgtYTdhYjViMGJkYWRlIiwiZGM1NTc2MzctNGQ0OS00YmNhLTk1ZmEtMDI5Yjg5MDI2NWYyIiwiM2E1ODFjNGItZmZmNC00NGIyLTgxNGUtMzhmMzlhZThmN2JmIiwiOTFlYzI5NGItNTEzMS00ZDRlLTk2ZmQtZTI5OTI1OTJiZmViIiwiYjlkZWY4NTEtOGE2NS00ODVkLTljOWQtNTI0ZDdhMzc4YmU5IiwiMDJlNzc4NjItYWM3OC00ZDJkLTliMTEtMTA1OTk5OWNkZDg0IiwiYzYzMDYzNjctODAyNC00ZDdkLTljM2ItMjZlZTIxZmJhZjM2IiwiNzgzZjEzNjktYWFkYy00YTc0LTg4N2MtYjA4ZWM2MmQzOTVmIiwiMTE1MTk0NmMtNDA5NS00NGMzLWIyZDYtMDMyNmFiYjgzZWZlIiwiYWMxMmMxNmMtZWEzNy00YWU5LWE0NmItNTIzM2M4NjE4MmVlIiwiZTFlMmQxNzAtYWFlOS00NDFlLWFmZDUtYjkxYzBmM2JhZGU2IiwiMzk3M2VlOGQtYmExNy00ZWIxLTlmMWUtZDJiODY1YzYzMmNiIiwiYzUwOGViOTEtZTVkNC00YzA1LTljMWMtNzk2NjBiZjYxNTJiIiwiY2ZkMzBhOTItM2I5ZC00YWUwLWE5NDMtNjQwMDA0NDZiZTkzIiwiNjZlOWI5OWItNjFkMC00MmI3LTg1YjYtYTE3Y2Q3MGYyNjdiIiwiY2UwNzNiOWYtOWMyOC00MWRhLTk3Y2EtOTVlMjViMmY2ODc5IiwiNzA3YTc4YWUtZTAwOC00YTI1LTllNTctODA5NzM4ZGVlZTdmIiwiNDI5M2YwYmItZDA4ZC00ZGViLWFhY2YtYWQ0NTQ4NTBlZTZhIiwiZDUyZWRjY2QtOWMwMS00ZTIxLWE3YmEtNzc4MjQ0NDhlZGQzIiwiOGFkYjQ1Y2UtN2U0ZC00NWFjLWI2NDUtOTlkNDdkNTMzMDk0IiwiN2MxM2I0ZGYtOGZlZS00ZjUwLTkyNTItMThlNGE4ZjNjODgzIiwiMTFkMGIyZjUtNjFmMy00NzRlLWEyYmItZDZjYmI2MTQ1MWM5IiwiNjkyZjM1ZjYtZjZjZS00MmNhLWFmNDAtYjU2MWFkMzZhZDBlIiwiNDQ1ZWYwZjktZjkwMi00OWMzLTg4MGEtNDAyNTI0MjA2ZTRhIl0sImlwYWRkciI6IjE2OC4xODMuMTM1LjI0IiwibmFtZSI6IkhvdWxlLCBEeWxhbiBOIiwib2lkIjoiZTE1OTIwZWUtZjRlNC00MTg2LThjZWEtMWY0ZjRjM2UzMzY4Iiwib25wcmVtX3NpZCI6IlMtMS01LTIxLTU4ODM3MTU4My0xODA1MjY1NDYwLTQyMTQxMzMwNzMtNzU5MzE0MiIsInB1aWQiOiIxMDAzMjAwMjk4QjhERDlDIiwicmgiOiIwLkFSc0F5dm9GMnlySW5VdTV4UTlrdG5WVUlaQWlNWDNJS0R4SG9PMk9VM1NiYlcwYkFOWS4iLCJzY3AiOiJ1c2VyX2ltcGVyc29uYXRpb24iLCJzdWIiOiJ1OHltU1V5YnZlbDJfVEw3S01OYWdKSXFFeGhJZUVJYjluUTR3d3YxbWs0IiwidGlkIjoiZGIwNWZhY2EtYzgyYS00YjlkLWI5YzUtMGY2NGI2NzU1NDIxIiwidW5pcXVlX25hbWUiOiJkeWxhbl9ob3VsZUBvcHR1bS5jb20iLCJ1cG4iOiJkeWxhbl9ob3VsZUBvcHR1bS5jb20iLCJ1dGkiOiJCSld1MU95YWMwQzN2UWQ0LTdGdUFBIiwidmVyIjoiMS4wIiwid2lkcyI6WyJiNzlmYmY0ZC0zZWY5LTQ2ODktODE0My03NmIxOTRlODU1MDkiXX0.kv7FyQmxjQQX0ZvPOXc8Q4TgYSqnNtLGJ48G0BQGUHdu7YCFb-G05SazZSvQwxELG427-yDxF_e7rb4EOg54wXk4RsD3xH_UmSeMzI3lqlc3meRY6DAuoUh1BUTr9fIgx4wEduzWWxJtWwIfJXJih4GrBIV-jY757VUqvJvBT3aF7GuXwokfgNNDIB1Q-pAIcxnkic5U9usopEPoqOnmbct6hrFkcXlSMdMrb-1jpCFkByTaro2LWQ14oFqX0Xntpv73jUaQnZK1mAQB88Ep3-Em5gwjEqtBA1yCZrBaVN5uhBiTMEOKnWQx-GLFjHsksvVcQe5_5r3_RQawYFBUqQ"
+    openai.api_type = "azure_ad"
+    openai.api_version = "2023-03-15-preview"
+    openai.api_base = f"https://ays6pb1ntgslwvyopenai.openai.azure.com/"
+    openai.Deployment.list()
+    model_name = "gpt-35-turbo"
+    print(openai.Deployment.create(model=model_name, scale_settings={"scale_type":"standard"}))
+
+
+    # openai.api_key = "dd9d2682f30f4f66b5a2d3f32fb6c917"
+    # openai.api_type = "azure"
+    # openai.api_version = "2023-06-01-preview"
+    # openai.api_base = "https://immerse.openai.azure.com/"
     
 
 # Call openai API
 def call_gpt(prompt,scores,alts):
 
-    deployment_name = 'immerse-3-5'
-    response = openai.Completion.create(
-        engine=deployment_name,
-        prompt=(f"Original Question: {prompt}\n"
-                "Answer:"
-                ),
-        max_tokens=500,
-        n=1,
-        top_p=0.7,
-        temperature=0.3,
-        frequency_penalty=0.0,
-        presence_penalty=0.0
-    )
+    deployment_id = "deployment-e86654ae68004190a12be5a187df27db"
+    response = openai.ChatCompletion.create(
+        engine=deployment_id,
+        messages = [],
+        temperature=0.7,
+        max_tokens=800,
+        top_p=0.95,
+        frequency_penalty=0,
+        presence_penalty=0,
+        stop=None)
+    
     output = response.choices[0].text.split('\n')[0]
-  
-    #print(output)
-
+    
+    print(output)
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
     output = re.sub("\(?(CID\d+),?\)?", "", output)
@@ -171,7 +170,7 @@ def call_gpt(prompt,scores,alts):
         alternates = ""
         for i in alts:
             alternates += f"{i.strip()}\n"
-        return f"{output}\nSorry, the exact sources are not known, but here are some possibilities:\n{alternates}"
+        return f"{output}\nHere are some possible sources to reference:\n{alternates}"
 
     confidence = compute_average(ids,scores)
     output = output[ 0 : output.rindex(".") + 1]
@@ -205,9 +204,6 @@ def main():
         # Initialize FAISS store and create pipe instance
         pipe = init()
 
-        # User's question
-        query = "Is the Vendor's information security team experienced in handling security incidents and vulnerability management"
-
         # Initialize document store
         document_store, loaded = init_store()
     
@@ -219,9 +215,20 @@ def main():
             write_docs(document_store, retriever)
         
         # Get response
-        output = get_response(pipe, query)
 
-        print(output)
+        while(True):
+            
+            # Users question
+            query = input("Please ask a question. Reply 'STOP' to stop:")
+
+            if query == "STOP":
+                break
+
+            output = get_response(pipe, query)
+            print(f"OUTPUT:\n{output}")
+        
+
+       
 
     except:
         
