@@ -64,7 +64,7 @@ def init_retriever(document_store):
 
 def write_docs(document_store, retriever):
     # Get dataframe with columns "question", "answer" and some custom metadata
-    df = pd.read_csv("qna1.csv")
+    df = pd.read_csv("qna.csv")
     df.fillna(value="", inplace=True)
 
     # Create embeddings for our questions from the FAQs
@@ -229,22 +229,21 @@ def init_gpt():
     openai.api_version = content["api_version"]
     openai.api_base = content["api_base"]
 
-def download_file(questions, answers, confidences, SMEs, source_links, source_filenames):
-    #file_type = st.radio("Select a file type (excel will contain sources & confidence data)", ["Excel", "CSV"])
-    file_type = "Excel"
-    if file_type == "Excel":
-        df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
-        print(df)
-        file = df.to_excel("questions_and_answers.xlsx", index=False)
-        #st.download_button("Download Excel", excel_file)
-
-    elif file_type == "CSV":
-        qa_pairs = [item for pair in zip(questions, answers) for item in pair]
-        df = pd.DataFrame({"Questions and Answers": qa_pairs})
-        print(df)
-        file = df.to_csv("questions_and_answers.csv", index=False)
-        #st.download_button("Download CSV", csv_file)
-    return file
+#def download_file(questions, answers, confidences, SMEs, source_links, source_filenames):
+#    #file_type = st.radio("Select a file type (excel will contain sources & confidence data)", ["Excel", "CSV"])
+#    file_type = "Excel"
+#    if file_type == "Excel":
+#        df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
+#        print(df)
+#        file = df.to_excel("questions_and_answers.xlsx", index=False)
+#        #st.download_button("Download Excel", excel_file)
+#    elif file_type == "CSV":
+#        qa_pairs = [item for pair in zip(questions, answers) for item in pair]
+#        df = pd.DataFrame({"Questions and Answers": qa_pairs})
+#        print(df)
+#        file = df.to_csv("questions_and_answers.csv", index=False)
+#        #st.download_button("Download CSV", csv_file)
+#    return file
 
 def to_excel(df):
     output = BytesIO()
@@ -318,7 +317,8 @@ def main():
 
     if query or submitted: # If user submits a question
         try:
-            questions.append(query)
+            if query.strip() != "":  # check for empty user query
+                questions.append(query)
             if len(questions) == 1: # single question case
                 # Query database, generate prompt from related docs, initialize gpt-3
                 output, conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_response(pipe, questions[0]) 
@@ -349,18 +349,22 @@ def main():
                         email_sme(query, best_sme, email_header, email_content)
                 questions.clear()
             elif len(questions) > 1:
+                print(f"\n\nQuestion length is: {len(questions)}\n\n")
                 # Initialize empty lists for answers, CIDs, source_links, source_filenames, SMEs, and confidences
                 answers, CIDs, source_links, source_filenames, SMEs, confidences = [], [], [], [], [], []
-
+                lock = threading.Lock()
+                stop_flag = False
                 threads = []
+
                 for i, question in enumerate(questions):
-                    # Append empty strings and lists to answers, CIDs, source_links, source_filenames, and SMEs
-                    answers.append("")
-                    CIDs.append([])
-                    source_links.append([])
-                    source_filenames.append([])
-                    SMEs.append([])
-                    confidences.append(0)
+                    with lock:
+                        # Append empty strings and lists to answers, CIDs, source_links, source_filenames, and SMEs
+                        answers.append("")
+                        CIDs.append([])
+                        source_links.append([])
+                        source_filenames.append([])
+                        SMEs.append([])
+                        confidences.append(0)
                     # Start a new thread for each question
                     thread = threading.Thread(target=get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i))
                     thread.start()
@@ -371,13 +375,20 @@ def main():
                 for thread in threads:
                     thread.join(timeout=26)
                     if thread.is_alive():
-                        # stop thread, re-run
-                        #thread.cancel()
-                        new_thread = threading.Thread(target=get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i))
+                        # set stop flag to signal thread to stop gracefully
+                        stop_flag = True
+                        thread.join()
+                        # start a new thread to replace the stopped thread
+                        with lock:
+                            answers[i] = ""
+                            CIDs[i] = []
+                            source_links[i] = []
+                            source_filenames[i] = []
+                            SMEs[i] = []
+                            confidences[i] = 0
+                        new_thread = threading.Thread(target=get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i, lock, stop_flag))
                         new_thread.start()
                         threads.append(new_thread)
-                        thread.join()
-                    
                 # response_header_slot.markdown(f"**Answers:**\n")
                 # sources_header.markdown(f"**Sources:**")
                 ## Clean confidences:
@@ -409,4 +420,5 @@ def main():
 
 if __name__ == "__main__": 
     main()
+
 
