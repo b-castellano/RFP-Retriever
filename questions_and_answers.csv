@@ -1,0 +1,9 @@
+Questions and Answers
+What is the policy on bubbles?
+ There is no policy on bubbles.
+Who is the current CFO?
+" The current CFO is not provided in the context.     . The context provides information about the Chief Audit Executive, Chief Privacy Officer, Chief Digital and Technology Officer, and Chief Information Security Officer. The context does not provide information about the current CFO. Therefore, the answer to the question is not available in the context.     ."
+What is the name of the company?
+" The name of the company is UnitedHealth Group.    are the question IDs of the answers that helped me formulate this response. The first answer provided three names, but the second answer confirmed that UnitedHealth Group is the correct name. The third answer provided the address of the company, which confirms that UnitedHealth Group is the correct name.  was not used in the response."
+""
+ The Secure Web Portal is hosted on AWS and OCI Cloud environments. We use React on the frontend which automatically incorporates XSS-prevention templates. We additionally include validation checks on user input across the application.
