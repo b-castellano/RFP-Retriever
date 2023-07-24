@@ -14,6 +14,9 @@ import json
 import pyperclip as pc
 import utils
 import threading
+from io import BytesIO
+from pyxlsb import open_workbook as open_xlsb
+import xlsxwriter
 
 # Streamlit
 import streamlit as st
@@ -243,6 +246,18 @@ def download_file(questions, answers, confidences, SMEs, source_links, source_fi
         #st.download_button("Download CSV", csv_file)
     return file
 
+def to_excel(df):
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    df.to_excel(writer, index=False, sheet_name='Sheet1')
+    workbook = writer.book
+    worksheet = writer.sheets['Sheet1']
+    format1 = workbook.add_format({'num_format': '0.00'}) 
+    worksheet.set_column('A:A', None, format1)  
+    writer.close()
+    processed_data = output.getvalue()
+    return processed_data
+
 ### Setup session storage
 st.session_state.responses = []
 
@@ -350,6 +365,7 @@ def main():
                     thread = threading.Thread(target=get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i))
                     thread.start()
                     threads.append(thread)
+                    thread.join()
 
                 # Wait for threads, timeout threads if they take too long
                 for thread in threads:
@@ -360,6 +376,7 @@ def main():
                         new_thread = threading.Thread(target=get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i))
                         new_thread.start()
                         threads.append(new_thread)
+                        thread.join()
                     
                 # response_header_slot.markdown(f"**Answers:**\n")
                 # sources_header.markdown(f"**Sources:**")
@@ -367,7 +384,6 @@ def main():
                 for i in range(len(confidences)):
                     x = confidences[i].find("** ")
                     confidences[i] = confidences[i][x+3:]
-
                 # create a markdown table
                 markdown_table = "| Question | Answer | Confidence |\n| --- | --- | --- |\n|" 
                 for i in range(len(CIDs)):
@@ -375,38 +391,11 @@ def main():
                 sources_slot.write(markdown_table, unsafe_allow_html=True)
 
                 # Button to detect file type for download
-                #file = st.button("Download Questions and Answers", on_click=download_file(questions, answers, confidences, SMEs, source_links, source_filenames))
-                #if file != None:
-                #file = download_file(questions, answers, confidences, SMEs, source_links, source_filenames)
                 #file_type = st.radio("Select a file type (excel will contain sources & confidence data)", ("Excel", "CSV"))
                 df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
-                #if file_type == "Excel":
-                #    file = df.to_excel()
-                #    name = "text.xls"
-                #    mime_type = "txt/xls"
-                #elif file_type == "CSV":
-                #    file = df.to_csv()
-                #    name = "text.csv"
-                #    mime_type = "txt/csv"
+                file = to_excel(df)
+                st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
                 st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
-                #st.download_button("Download Excel", data=df.to_excel(), file_name="text_2.xlsx", mime="txt/xlsx")
-                #if st.button("Download Questions and Answers"):
-                #    download_file(questions, answers, confidences, SMEs, source_links, source_filenames)
-                #st.button("Download Questions and Answers", on_click=download_file(questions, answers, confidences, SMEs, source_links, source_filenames))
-                #if st.button("Download Questions and Answers"):
-                #    file_type = st.radio("Select a file type (excel will contain sources & confidence data)", ["Excel", "CSV"])
-                #    if file_type == "Excel":
-                #        df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
-                #        print(df)
-                #        excel_file = df.to_excel("questions_and_answers.xlsx", index=False)
-                #        st.download_button("Download Excel", excel_file)
-
-                #    elif file_type == "CSV":
-                #        qa_pairs = [item for pair in zip(questions, answers) for item in pair]
-                #        df = pd.DataFrame({"Questions and Answers": qa_pairs})
-                #        print(df)
-                #        csv_file = df.to_csv("questions_and_answers.csv", index=False)
-                #        st.download_button("Download CSV", csv_file)
 
             else:
                 st.error("No questions detected")
