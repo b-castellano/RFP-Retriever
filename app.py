@@ -86,6 +86,7 @@ def get_response(pipe, query):
     # Generate prompt from related docs
     prompt, scores, alts, CIDs, source_links, source_filenames, SMEs, best_sme = create_prompt(query, prediction)
     output, conf = call_gpt(prompt, scores, alts)
+    output = output.replace(". .", ".")  # cleanup two periods response bug
     return output, conf, CIDs, source_links, source_filenames, SMEs, best_sme
 
 def query_faiss(query, pipe):
@@ -242,6 +243,7 @@ def main():
     st.header("Ask a Question:")
 
     file_upload = st.checkbox("Upload questions from file")
+
     if file_upload:
         questions_file = st.file_uploader("Upload a CSV or Excel file (each cell a question, max 50 questions)", type=['csv', 'xlsx'])
         if questions_file is not None:
@@ -256,6 +258,8 @@ def main():
 
     options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
     selected_option = st.selectbox('Desired answer type:', options=options, index=0)
+    # nda_status = st.checkbox("NDA Signed?")
+
     query = st.text_input("RFP/Security-Related")
     submitted = st.button("Submit")
 
@@ -326,13 +330,20 @@ def main():
                 for thread in threads:
                     thread.join()
 
-                response_header_slot.markdown(f"**Answers:**\n")
-                sources_header.markdown(f"**Sources:**")
+                # response_header_slot.markdown(f"**Answers:**\n")
+                # sources_header.markdown(f"**Sources:**")
+                ## Clean confidences:
+                for i in range(len(confidences)):
+                    x = confidences[i].find("** ")
+                    confidences[i] = confidences[i][x+3:]
+
                 # create a markdown table
                 markdown_table = "| Question | Answer | Confidence |\n| --- | --- | --- |\n|" 
                 for i in range(len(CIDs)):
                     markdown_table += "{0} | {1} | {2} |\n|".format(questions[i], answers[i], confidences[i]) 
                 sources_slot.write(markdown_table, unsafe_allow_html=True)
+                print(confidences)
+                print(markdown_table)
 
                 # Button to download answers into csv/excel
                 if st.button("Download Questions and Answers"):
