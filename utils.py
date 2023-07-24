@@ -1,5 +1,5 @@
 import pandas as pd
-
+import datetime
 
 def compute_average(ids, scores):
     total = 0
@@ -79,3 +79,15 @@ def read_questions(file):
     if questions==[]:
         return [], 1
     return questions, 0
+
+
+def getMostRecentDate(x, y):
+    # Convert strings to datetime objects
+    date_x = datetime.strptime(x, "%Y-%m-%d %H:%M:%S %z")
+    date_y = datetime.strptime(y, "%Y-%m-%d %H:%M:%S %z")
+
+    # Compare dates and print the more recent one
+    if date_x > date_y:
+        return date_x
+    else:
+        return date_y

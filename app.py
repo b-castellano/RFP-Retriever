@@ -61,7 +61,7 @@ def init_retriever(document_store):
 
 def write_docs(document_store, retriever):
     # Get dataframe with columns "question", "answer" and some custom metadata
-    df = pd.read_csv("qna1.csv")
+    df = pd.read_csv("qna.csv")
     df.fillna(value="", inplace=True)
 
     # Create embeddings for our questions from the FAQs
