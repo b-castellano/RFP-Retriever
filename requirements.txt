@@ -1,0 +1,15 @@
+altair
+datasets
+langchain
+PyPDF2
+streamlit
+faiss-cpu
+streamlit-extras
+watchdog
+python-docx
+openai
+langchain
+PyYAML
+farm-haystack[faiss]
+farm-haystack[inference]
+pyperclip
