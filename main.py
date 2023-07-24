@@ -135,16 +135,20 @@ def init_gpt():
     if content is None:
         raise Exception("Error reading gpt-config")
 
+
     openai.api_key = content["api_key"]
     openai.api_type = content["api_type"] 
     openai.api_version = content["api_version"]
     openai.api_base = content["api_base"]
+    
+    
 
 
 # Call openai API
 def call_gpt(prompt,scores,alts):
 
-    deployment_id = "deployment-e86654ae68004190a12be5a187df27db"
+    deployment_id = "deployment-ae1a29d047eb4619a2b64fb755ae468f"
+
     response = openai.Completion.create(
         engine=deployment_id,
         prompt=(f"Original Question: {prompt}\n"
@@ -197,6 +201,7 @@ def compute_average(ids, scores):
     avgscore *= 100                 # convert from decimal to percentage
 
     return avgscore
+
 
 
 def main():
