@@ -303,7 +303,8 @@ def main():
 
     if query or submitted: # If user submits a question
         try:
-            questions.append(query)
+            if query.strip() != "":  # check for empty user query
+                questions.append(query)
             if len(questions) == 1: # single question case
                 # Query database, generate prompt from related docs, initialize gpt-3
                 output, conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_response(pipe, questions[0]) 
@@ -334,18 +335,22 @@ def main():
                         email_sme(query, best_sme, email_header, email_content)
                 questions.clear()
             elif len(questions) > 1:
+                print(f"\n\nQuestion length is: {len(questions)}\n\n")
                 # Initialize empty lists for answers, CIDs, source_links, source_filenames, SMEs, and confidences
                 answers, CIDs, source_links, source_filenames, SMEs, confidences = [], [], [], [], [], []
-
+                lock = threading.Lock()
+                stop_flag = False
                 threads = []
+
                 for i, question in enumerate(questions):
-                    # Append empty strings and lists to answers, CIDs, source_links, source_filenames, and SMEs
-                    answers.append("")
-                    CIDs.append([])
-                    source_links.append([])
-                    source_filenames.append([])
-                    SMEs.append([])
-                    confidences.append(0)
+                    with lock:
+                        # Append empty strings and lists to answers, CIDs, source_links, source_filenames, and SMEs
+                        answers.append("")
+                        CIDs.append([])
+                        source_links.append([])
+                        source_filenames.append([])
+                        SMEs.append([])
+                        confidences.append(0)
                     # Start a new thread for each question
                     thread = threading.Thread(target=get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i))
                     thread.start()
@@ -355,12 +360,20 @@ def main():
                 for thread in threads:
                     thread.join(timeout=26)
                     if thread.is_alive():
-                        # stop thread, re-run
-                        thread.cancel()
-                        new_thread = threading.Thread(target=get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i))
+                        # set stop flag to signal thread to stop gracefully
+                        stop_flag = True
+                        thread.join()
+                        # start a new thread to replace the stopped thread
+                        with lock:
+                            answers[i] = ""
+                            CIDs[i] = []
+                            source_links[i] = []
+                            source_filenames[i] = []
+                            SMEs[i] = []
+                            confidences[i] = 0
+                        new_thread = threading.Thread(target=get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i, lock, stop_flag))
                         new_thread.start()
                         threads.append(new_thread)
-                    
                 # response_header_slot.markdown(f"**Answers:**\n")
                 # sources_header.markdown(f"**Sources:**")
                 ## Clean confidences:
@@ -420,4 +433,5 @@ def main():
 
 if __name__ == "__main__": 
     main()
+
 
