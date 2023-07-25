@@ -5,15 +5,14 @@ from tqdm.auto import tqdm  # progress bar
 from datasets import load_dataset
 import pandas as pd
 import numpy as np
+import torch
 import openai
 import traceback
 import os
+import random
 import re
 import json
-# import pyperclip as pc
-# pc.copy("testing")
-# x = pc.paste()
-# print(x)
+import pyperclip as pc
 
 # Streamlit
 import streamlit as st
@@ -62,6 +61,21 @@ def init_retriever(document_store):
         model_format="sentence_transformers"
     )
 
+def init_pipe(retriever):
+    return FAQPipeline(retriever=retriever)
+
+def init_gpt():
+    with open('gpt-config.json') as user_file:
+        content = json.load(user_file)
+    
+    if content is None:
+        raise Exception("Error reading config")
+
+    openai.api_key = content["api_key"]
+    openai.api_type = content["api_type"] 
+    openai.api_version = content["api_version"]
+    openai.api_base = content["api_base"]
+
 def write_docs(document_store, retriever):
     # Get dataframe with columns "question", "answer" and some custom metadata
     df = pd.read_csv("qna1.csv")
@@ -83,8 +97,6 @@ def write_docs(document_store, retriever):
     print("docs added:", document_store.get_document_count())
     print("docs embedded:", document_store.get_embedding_count())
 
-def init_pipe(retriever):
-    return FAQPipeline(retriever=retriever)
 
 def get_response(pipe, query):
     prediction = query_faiss(query, pipe) 
@@ -100,10 +112,10 @@ def query_faiss(query, pipe):
 def create_prompt(query, prediction):  ### may add a parameter "Short", "Yes/No", "Elaborate", etc. for answer preferences
     print("Creating prompt")
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
-                            template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
+                            template="{prefix}\nQuestion: {question}\n Context: {context}\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. List the question IDs of the answers you referenced. If you do not have enough information to answer the quesion, just state you cannot answer the question."""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally and concisely. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question'. List the question IDs of the answers you referenced to formulate your response."""
 
     # Create context
     context = ""
@@ -144,53 +156,62 @@ def create_prompt(query, prediction):  ### may add a parameter "Short", "Yes/No"
     # Get the question ID with the highest score, use as primary SME
     max_id = max(scores, key=scores.get)
     best_sme = sme_dict[max_id]
-    return prompt.format(prefix=prefix, question=query, context=context), scores, alts, CIDs, source_links, source_filenames, SMEs, best_sme 
+
+    # Input prompt for gpt
+    input_prompt = prompt.format(prefix=prefix, question=query, context=context)
+    return input_prompt, scores, alts, CIDs, source_links, source_filenames, SMEs, best_sme 
     
 
 # Call openai API
 def call_gpt(prompt,scores, alts):  # returns None as confidence if no sources used for prompt
-    deployment_name = 'immerse-3-5'
+   
+    deployment_id = "deployment-ae1a29d047eb4619a2b64fb755ae468f"
+
     response = openai.Completion.create(
-        engine=deployment_name,
+        engine=deployment_id,
         prompt=(f"Original Question: {prompt}\n"
                 "Answer:"
                 ),
         max_tokens=500,
         n=1,
         top_p=0.7,
-        temperature=0.3,
+        temperature=0.3
+        ,
         frequency_penalty=0.0,
         presence_penalty=0.0
     )
-    output = response.choices[0].text.split('\n')[0]
+    
+    output = response['choices'][0]['text'].replace('\n', '').replace(' .', '.').strip()
+    
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
     output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
-    output = re.sub("[ ]{2,}", " ", output)
 
     # Handle case where gpt doesn't output sources in prompt
     if ids is None or len(ids) == 0:
         alternates = ""
         for i in alts:
             alternates += f"{i.strip()}\n"
-        return f"{output}\nBelow are some possible sources for reference", "**Confidence:** N/A"
+        return f"{output}\nHere are some possible sources to reference:\n{alternates}", "**No were used in the creation of this answer**"
 
-    output = output[ 0 : output.rindex(".") + 1]
     confidence = compute_average(ids,scores)
     conf_str = f"\n\n**Confidence Score:** {confidence:.2f}%"
     return output, conf_str
 
 def compute_average(ids, scores):
+
     total = 0
+
     for id in ids:
+
         id = id.strip()
         total += scores[id]
-    if len(ids) > 0:
-        avgscore = total / len(ids)     # convert total score to avg
-    else:
-        avgscore = 0
+
+    avgscore = total / len(ids)     # convert total score to avg
     avgscore *= 100                 # convert from decimal to percentage
+
     return avgscore
+
 
 def parse_sme_name(sme):
     if sme == "N/A":
@@ -201,32 +222,41 @@ def parse_sme_name(sme):
     l = len(name_list)
     # Reorder
     if l > 2:  # handle multiple names case
-        firstnames = [name_list[i] for i in range(1, len(name_list)-1)]
-        firstname = ' '.join(firstnames)
-        middlename = name_list[-1].replace('(', '\"').replace(')', '\"').strip()
+        firstnames = [name_list[i] for i in range(1, len(name_list))]
         lastname = name_list[0]
-        fullname = firstname + ' ' + middlename + ' ' + lastname
-    elif l == 2:  # handle Firstname Lastname case
-        firstname = name_list[1].replace('(', '\"').replace(')', '\"').strip()
-        lastname = name_list[0]
-        fullname = firstname + ' ' + lastname
-    elif l == 1:
+        fullname = ' '.join(firstnames) + ' ' + lastname
+    elif l == 1 :  # handle Firstname Lastname case
+        fullname = name_list[0]
+    elif l == 0:
         sme = "STRANGE SME NAME. INSPECT ORIGINAL DOCUMENT"
     else:
         fullname = name_list[1] + ' ' + name_list[0]
     return fullname
 
-def init_gpt():
-    with open('gpt-config.json') as user_file:
-        content = json.load(user_file)
-    
-    if content is None:
-        raise Exception("Error reading config")
+# def parse_sme_name(sme):
+#     if sme == "N/A":
+#         return "<insert name here>"
+#     # Split name, remove whitespace
+#     name_list = sme.replace('/', ',').split(',')
+#     name_list = [name.strip() for name in name_list]
+#     l = len(name_list)
+#     # Reorder
+#     if l > 2:  # handle multiple names case
+#         firstnames = [name_list[i] for i in range(1, len(name_list)-1)]
+#         firstname = ' '.join(firstnames)
+#         middlename = name_list[-1].replace('(', '').replace(')', '').strip()
+#         lastname = name_list[0]
+#         fullname = firstname + ' ' + middlename + ' ' + lastname
+#     elif l == 2:  # handle Firstname Lastname case
+#         firstname = name_list[1].replace('(', '').replace(')', '').strip()
+#         lastname = name_list[0]
+#         fullname = firstname + ' ' + lastname
+#     elif l == 1:
+#         sme = "STRANGE SME NAME. INSPECT ORIGINAL DOCUMENT"
+#     else:
+#         fullname = name_list[1] + ' ' + name_list[0]
+#     return fullname
 
-    openai.api_key = content["api_key"]
-    openai.api_type = content["api_type"] 
-    openai.api_version = content["api_version"]
-    openai.api_base = content["api_base"]
 
 ### Setup session storage
 st.session_state.responses = []

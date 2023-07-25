@@ -53,6 +53,25 @@ def init_retriever(document_store):
         model_format="sentence_transformers"
     )
 
+
+
+def init_pipe(retriever):
+    return FAQPipeline(retriever=retriever)
+
+def init_gpt():
+
+    with open('gpt-config.json') as user_file:
+        content = json.load(user_file)
+
+    if content is None:
+        raise Exception("Error reading gpt-config")
+
+
+    openai.api_key = content["api_key"]
+    openai.api_type = content["api_type"] 
+    openai.api_version = content["api_version"]
+    openai.api_base = content["api_base"]
+
 def write_docs(document_store, retriever):
     # Get dataframe with columns "question", "answer" and some custom metadata
     df = pd.read_csv("qna.csv")
@@ -74,10 +93,6 @@ def write_docs(document_store, retriever):
     print("docs added:", document_store.get_document_count())
     print("docs embedded:", document_store.get_embedding_count())
 
-
-def init_pipe(retriever):
-    return FAQPipeline(retriever=retriever)
-
 def get_response(pipe, query):
 
     prediction = query_faiss(query, pipe)
@@ -89,10 +104,7 @@ def get_response(pipe, query):
     return call_gpt(prompt, scores, alts)
 
 def query_faiss(query, pipe):
-    # while True:
-    # query = input("What question would you like to ask? (Type \"STOP\" to exit): ")
-    # if query == "STOP":
-    #     break
+  
     return pipe.run(query=query, params={"Retriever": {"top_k": 5}})
 
 
@@ -123,26 +135,9 @@ def create_prompt(query, prediction):
             
             alts.append(answer.meta["cid"])
             count+=1
-    return prompt.format(prefix=prefix, question=query, context=context), scores, alts
-    
 
-
-def init_gpt():
-
-    with open('gpt-config.json') as user_file:
-        content = json.load(user_file)
-
-    if content is None:
-        raise Exception("Error reading gpt-config")
-
-
-    openai.api_key = content["api_key"]
-    openai.api_type = content["api_type"] 
-    openai.api_version = content["api_version"]
-    openai.api_base = content["api_base"]
-    
-    
-
+    input_prompt = prompt.format(prefix=prefix, question=query, context=context)
+    return input_prompt, scores, alts
 
 # Call openai API
 def call_gpt(prompt,scores,alts):
@@ -164,8 +159,7 @@ def call_gpt(prompt,scores,alts):
     )
     
     output = response['choices'][0]['text'].replace('\n', '').replace(' .', '.').strip()
-    
-    print(output)
+
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
     output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
