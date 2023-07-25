@@ -1,5 +1,6 @@
 import pandas as pd
 import datetime
+from openpyxl import load_workbook
 
 def compute_average(ids, scores):
     total = 0
@@ -69,16 +70,17 @@ def read_questions(file):
         return [], 2
     # Extract non-empty cells as questions and append question marks
     questions = []
+    rows = []
     for _, row in df.iterrows():
         for cell in row:
             if pd.notna(cell):
                 question = str(cell).strip()
-                if not question.endswith('?'):
-                    question += '?'
                 questions.append(question)
+                print(row)
+                rows.append(row)
     if questions==[]:
-        return [], 1
-    return questions, 0
+        return [], 1, []
+    return questions, 0, rows
 
 
 def getMostRecentDate(x, y):

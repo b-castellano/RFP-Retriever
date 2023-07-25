@@ -17,6 +17,7 @@ import threading
 from io import BytesIO
 from pyxlsb import open_workbook as open_xlsb
 import xlsxwriter
+from openpyxl import Workbook
 
 # Streamlit
 import streamlit as st
@@ -30,7 +31,6 @@ from haystack.pipelines import FAQPipeline
 # Langchain
 import langchain
 from langchain.prompts import PromptTemplate
-
 
 # Warning filter
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
@@ -88,6 +88,7 @@ def init_pipe(retriever):
 
 def get_response(pipe, query):
     prediction = query_faiss(query, pipe) 
+
     # Generate prompt from related docs
     prompt, scores, alts, CIDs, source_links, source_filenames, SMEs, best_sme = create_prompt(query, prediction)
     output, conf = call_gpt(prompt, scores, alts)
@@ -97,6 +98,7 @@ def get_response(pipe, query):
     # if x is not None and x>= 0:
     #     output = output[:x+1]
     output = re.sub("\.\s+\.", ".", output)
+
     return output, conf, CIDs, source_links, source_filenames, SMEs, best_sme
 
 def query_faiss(query, pipe):
@@ -110,17 +112,21 @@ def create_prompt(query, prediction):  ### may add a parameter "Short", "Yes/No"
 
     # Provide instructions/prefix
     prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner with explanation. Just at the end, list the question IDs of the answers you referenced to formulate your response."""
+    
     # Create context
     context = ""
     scores = {}
     SMEs, sme_dict, source_filenames, source_links, CIDs = [], {}, [], [], []  # SMEs are dictionary in this function to allow us to more easily get best_sme later
     alts = []
     count = 0
+
     for answer in prediction["answers"]:
         newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
+
         # Remove docs 
         context += "Question ID: {ID}, Answer: {answer}\n".format(
             ID=answer.meta["cid"], answer=newAnswer)
+        
         # Add ID-Score pair to dict
         scores[answer.meta["cid"]] = answer.score
 
@@ -149,9 +155,11 @@ def create_prompt(query, prediction):  ### may add a parameter "Short", "Yes/No"
     # print(SMEs)
     # print(CIDs)
     # print(sme_dict)
+
     # Get the question ID with the highest score, use as primary SME
     max_id = max(scores, key=scores.get)
     best_sme = sme_dict[max_id]
+
     return prompt.format(prefix=prefix, question=query, context=context), scores, alts, CIDs, source_links, source_filenames, SMEs, best_sme 
     
 
@@ -169,6 +177,7 @@ def call_gpt(prompt,scores, alts):  # returns None as confidence if no sources u
         frequency_penalty=0.0,
         presence_penalty=0.0
     )
+
     output = response.choices[0].text.split('\n')[0]
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
@@ -184,11 +193,13 @@ def call_gpt(prompt,scores, alts):  # returns None as confidence if no sources u
     output = output[ 0 : output.rindex(".") + 1]
     confidence = utils.compute_average(ids,scores)
     conf_str = f"\n\n**Confidence:** {confidence:.2f}%"
+
     return output, conf_str
 
 def email_sme(query, best_sme, email_header, email_content):
     print("Drafting email...")
     email_header.markdown("### Email To SME:")
+
     prompt = f"Please write a brief and professional business email to someone named {best_sme} asking {query}. Include only the text of the email in your response, not any sort of email address, and should be formatted nicely. The email should start with Subject: __ \n\nand end with the exact string \n\n'[Your Name]'."
     response = openai.Completion.create(
         engine='immerse-3-5',
@@ -198,6 +209,7 @@ def email_sme(query, best_sme, email_header, email_content):
         frequency_penalty=0.0,
         presence_penalty=0,
     )
+
     email_response = response.choices[0].text
     subject_index = email_response.find("Subject:")
     name_index = email_response.find("[Your Name]")
@@ -206,8 +218,10 @@ def email_sme(query, best_sme, email_header, email_content):
 
 def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i):
     question = questions[i]
+
     output, conf, CIDs_i, source_links_i, source_filenames_i, SMEs_i, best_sme = get_response(pipe, question)
     CIDs_i, source_links_i, source_filenames_i, SMEs_i = utils.remove_duplicates(CIDs_i, source_links_i, source_filenames_i, SMEs_i)
+    
     # Feed prompt into gpt, store query & output in session state
     answers[i] = output
     CIDs[i] = CIDs_i
@@ -215,6 +229,7 @@ def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames
     source_filenames[i] = source_filenames_i
     SMEs[i] = SMEs_i
     confidences[i] = conf
+
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
 
 def init_gpt():
@@ -229,33 +244,32 @@ def init_gpt():
     openai.api_version = content["api_version"]
     openai.api_base = content["api_base"]
 
-#def download_file(questions, answers, confidences, SMEs, source_links, source_filenames):
-#    #file_type = st.radio("Select a file type (excel will contain sources & confidence data)", ["Excel", "CSV"])
-#    file_type = "Excel"
-#    if file_type == "Excel":
-#        df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
-#        print(df)
-#        file = df.to_excel("questions_and_answers.xlsx", index=False)
-#        #st.download_button("Download Excel", excel_file)
-#    elif file_type == "CSV":
-#        qa_pairs = [item for pair in zip(questions, answers) for item in pair]
-#        df = pd.DataFrame({"Questions and Answers": qa_pairs})
-#        print(df)
-#        file = df.to_csv("questions_and_answers.csv", index=False)
-#        #st.download_button("Download CSV", csv_file)
-#    return file
+# Excel writer
+#def to_excel(df):
+#    output = BytesIO()
+#    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+#    df.to_excel(writer, index=False, sheet_name='Sheet1')
+#    workbook = writer.book
+#    worksheet = writer.sheets['Sheet1']
+#    format1 = workbook.add_format({'num_format': '0.00'}) 
+#    worksheet.set_column('A:A', None, format1)  
+#    writer.close()
+#    processed_data = output.getvalue()
+#    return processed_data
 
-def to_excel(df):
-    output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    df.to_excel(writer, index=False, sheet_name='Sheet1')
-    workbook = writer.book
-    worksheet = writer.sheets['Sheet1']
-    format1 = workbook.add_format({'num_format': '0.00'}) 
-    worksheet.set_column('A:A', None, format1)  
-    writer.close()
-    processed_data = output.getvalue()
-    return processed_data
+# Don't know how to get required data in series for inserting into cell
+def to_excel(df, rows):
+    wb = Workbook()
+    ws = wb.active
+    for row in rows:
+        #print(row[0])
+        #print(row[1])
+        #print(row.values)
+        #print(row.value)
+        ws.cell(row=row.name, column=2, value=row.get())
+    wb.save()
+    return wb
+
 
 ### Setup session storage
 st.session_state.responses = []
@@ -275,7 +289,8 @@ with st.sidebar:
 def main():
     # Initialize pipline
     pipe = init()
-    questions=[]
+    questions = []
+    rows = []
 
     # Init UI Slots
     st.header("Ask a Question:")
@@ -285,14 +300,15 @@ def main():
     if file_upload:
         questions_file = st.file_uploader("Upload a CSV or Excel file (each cell a question, max 50 questions)", type=['csv', 'xlsx'])
         if questions_file is not None:
-            questions, errCode = utils.read_questions(questions_file)
+            questions, errCode, rows = utils.read_questions(questions_file)
             if errCode==1:
                 st.error("Emtpy file")
             elif errCode ==2:
                 st.error("File type not supported. Please upload a CSV or Excel file.")
             else:
                 questions = questions[:50]
-            # print(questions)
+            #print(questions)
+            #print(rows)   
 
     options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
     # selected_option = st.selectbox('Desired answer type:', options=options, index=0)
@@ -320,14 +336,18 @@ def main():
             if query.strip() != "":  # check for empty user query
                 questions.append(query)
             if len(questions) == 1: # single question case
+
                 # Query database, generate prompt from related docs, initialize gpt-3
                 output, conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_response(pipe, questions[0]) 
                 CIDs, source_links, source_filenames, SMEs = utils.remove_duplicates(CIDs, source_links, source_filenames, SMEs)
+
                 # Feed prompt into gpt, store query & output in session state
                 st.session_state.responses.append(questions[0])
                 st.session_state.responses.append(output)
+
                 response_header_slot.markdown(f"**Answer:**\n")
                 response_slot.write(output)  
+
                 with response_copy.expander('Copy response'):
                     st.write("Copied response!")
                     pc.copy(output) 
@@ -335,6 +355,7 @@ def main():
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(conf)
                 sources_header.markdown(f"**Sources:**")
+
                 # create a markdown table
                 markdown_table = "| CID | SME | File Name |\n| --- | --- | --- |\n|" 
                 for i in range(len(CIDs)):
@@ -348,8 +369,10 @@ def main():
                     if draft_email.expander:
                         email_sme(query, best_sme, email_header, email_content)
                 questions.clear()
+
             elif len(questions) > 1:
                 print(f"\n\nQuestion length is: {len(questions)}\n\n")
+
                 # Initialize empty lists for answers, CIDs, source_links, source_filenames, SMEs, and confidences
                 answers, CIDs, source_links, source_filenames, SMEs, confidences = [], [], [], [], [], []
                 lock = threading.Lock()
@@ -389,22 +412,26 @@ def main():
                         new_thread = threading.Thread(target=get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i, lock, stop_flag))
                         new_thread.start()
                         threads.append(new_thread)
+
                 # response_header_slot.markdown(f"**Answers:**\n")
                 # sources_header.markdown(f"**Sources:**")
+
                 ## Clean confidences:
                 for i in range(len(confidences)):
                     x = confidences[i].find("** ")
                     confidences[i] = confidences[i][x+3:]
-                # create a markdown table
+
+                # Create a markdown table
                 markdown_table = "| Question | Answer | Confidence |\n| --- | --- | --- |\n|" 
                 for i in range(len(CIDs)):
                     markdown_table += "{0} | {1} | {2} |\n|".format(questions[i], answers[i], confidences[i]) 
                 sources_slot.write(markdown_table, unsafe_allow_html=True)
 
                 # Button to detect file type for download
-                #file_type = st.radio("Select a file type (excel will contain sources & confidence data)", ("Excel", "CSV"))
+                # file_type = st.radio("Select a file type (excel will contain sources & confidence data)", ("Excel", "CSV"))
+                st.markdown("### Download")
                 df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
-                file = to_excel(df)
+                file = to_excel(df, rows)
                 st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
                 st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
 
