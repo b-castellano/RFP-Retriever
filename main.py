@@ -100,7 +100,7 @@ def query_faiss(query, pipe):
 def create_prompt(query, prediction):
 
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
-                            template="{prefix}\nQuestion: {question}\n Context: {context}\n")
+                            template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
     prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. List the question IDs of the answers you referenced. If you do not have enough information to answer the quesion, just state you cannot answer the question."""
@@ -157,7 +157,8 @@ def call_gpt(prompt,scores,alts):
         max_tokens=500,
         n=1,
         top_p=0.7,
-        temperature=0.3,
+        temperature=0.3
+        ,
         frequency_penalty=0.0,
         presence_penalty=0.0
     )

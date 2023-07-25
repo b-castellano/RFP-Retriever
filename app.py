@@ -100,10 +100,10 @@ def query_faiss(query, pipe):
 def create_prompt(query, prediction):  ### may add a parameter "Short", "Yes/No", "Elaborate", etc. for answer preferences
     print("Creating prompt")
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
-                            template="{prefix}\nQuestion: {question}\n Context: {context}\n")
+                            template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner, and, at the end of your whole response, list the question IDs of the answers you referenced in this form (..,..,..). If you do not have enough information to answer the question, just state that you cannot answer the question."""
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. List the question IDs of the answers you referenced. If you do not have enough information to answer the quesion, just state you cannot answer the question."""
 
     # Create context
     context = ""
