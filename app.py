@@ -245,30 +245,49 @@ def init_gpt():
     openai.api_base = content["api_base"]
 
 # Excel writer
-#def to_excel(df):
-#    output = BytesIO()
-#    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-#    df.to_excel(writer, index=False, sheet_name='Sheet1')
-#    workbook = writer.book
-#    worksheet = writer.sheets['Sheet1']
-#    format1 = workbook.add_format({'num_format': '0.00'}) 
-#    worksheet.set_column('A:A', None, format1)  
-#    writer.close()
-#    processed_data = output.getvalue()
-#    return processed_data
+def to_excel(df, rows):
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    #df.to_excel(writer, index=None, sheet_name='Sheet1')
+    workbook = writer.book
+    worksheet = workbook.add_worksheet("Sheet1")
+    worksheet = writer.sheets['Sheet1']
+    format1 = workbook.add_format({'num_format': '0.00'}) 
+    worksheet.set_column('A:A', None, format1)
+    n = 0
+    for row in rows:
+        for column in range(5):
+            worksheet.write(row.name, column, str(df.iloc[n,column]))
+        n += 1
+    writer.close()
+    processed_data = output.getvalue()
+    return processed_data
+
+def to_excel_no_format(df):
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    df.to_excel(writer, index=None, sheet_name='Sheet1')
+    workbook = writer.book
+    worksheet = writer.sheets['Sheet1']
+    format1 = workbook.add_format({'num_format': '0.00'}) 
+    worksheet.set_column('A:A', None, format1)
+    writer.close()
+    processed_data = output.getvalue()
+    return processed_data
 
 # Don't know how to get required data in series for inserting into cell
-def to_excel(df, rows):
-    wb = Workbook()
-    ws = wb.active
-    for row in rows:
+#def to_excel(df, rows):
+#    wb = Workbook()
+#    ws = wb.active
+#    for row in rows:
         #print(row[0])
         #print(row[1])
         #print(row.values)
         #print(row.value)
-        ws.cell(row=row.name, column=2, value=row.get())
-    wb.save()
-    return wb
+#        print(row)
+        #ws.cell(row=row.name, column=2, value=row[1])
+#    wb.save()
+#    return wb
 
 
 ### Setup session storage

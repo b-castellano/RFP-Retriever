@@ -76,7 +76,7 @@ def read_questions(file):
             if pd.notna(cell):
                 question = str(cell).strip()
                 questions.append(question)
-                print(row)
+                #print(row)
                 rows.append(row)
     if questions==[]:
         return [], 1, []
