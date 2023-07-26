@@ -101,7 +101,11 @@ def get_response(pipe, query):
 
     # If a close match was found, just return that answer
     if closeMatch:
-        return prediction.answer
+        newAnswer = re.sub("[\[\]'\"]","",prediction.meta["answer"])
+        score = prediction.score * 100
+        source = prediction.meta["cid"]
+        
+        return f"{newAnswer}\nConfidence Score: {score:.2f}%\nSources: \n{source}"
      
     # Generate prompt from related docs
     prompt,scores, alts = create_prompt(query, prediction)
@@ -127,13 +131,7 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security 
-    questions professionally. Provided is the original question and some context consisting of a sequence of answers in 
-    the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise 
-    manner. At the end of your response, list the question IDs of the answers you referenced."""
-# If you do not have enough information to answer the 
-#     quesion, just state you cannot answer the question.
-    # Create context
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
     context = ""
     scores = {}
     alts = []
