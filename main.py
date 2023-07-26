@@ -39,7 +39,7 @@ def init():
 def init_store():
     try:
 
-        return FAISSDocumentStore.load(index_path="my_faiss_index.faiss"), True
+        return FAISSDocumentStore.load(index_path="my_faiss_index1.faiss"), True
         
     except:
         return FAISSDocumentStore(
@@ -96,9 +96,9 @@ def write_docs(document_store, retriever):
     print("docs embedded:", document_store.get_embedding_count())
 
 def get_response(pipe, query):
-
+    
     prediction = query_faiss(query, pipe)
-        
+    print(prediction["documents"])    
     # Generate prompt from related docs
     prompt,scores, alts = create_prompt(query, prediction)
 
