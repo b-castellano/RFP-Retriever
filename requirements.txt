@@ -13,3 +13,6 @@ PyYAML
 farm-haystack[faiss]
 farm-haystack[inference]
 pyperclip
+numpy
+threading
+openpyxl
