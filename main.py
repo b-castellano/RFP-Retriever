@@ -97,8 +97,12 @@ def write_docs(document_store, retriever):
 
 def get_response(pipe, query):
     
-    prediction = query_faiss(query, pipe)
-    print(prediction["documents"])    
+    prediction, closeMatch = query_faiss(query, pipe)
+
+    # If a close match was found, just return that answer
+    if closeMatch:
+        return prediction.answer
+     
     # Generate prompt from related docs
     prompt,scores, alts = create_prompt(query, prediction)
 
@@ -106,8 +110,14 @@ def get_response(pipe, query):
     return call_gpt(prompt, scores, alts)
 
 def query_faiss(query, pipe):
-  
-    return pipe.run(query=query, params={"Retriever": {"top_k": 5}})
+    docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
+
+    # If there is a close match between user question and pulled doc, then just return that doc's answer
+    print(docs["documents"][0].score)
+    if docs["documents"][0].score > .95:
+        return docs["documents"][0], True
+        
+    return docs, False
 
 
 # Create prompt template
@@ -117,15 +127,21 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. List the question IDs of the answers you referenced. If you do not have enough information to answer the quesion, just state you cannot answer the question."""
-
+    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security 
+    questions professionally. Provided is the original question and some context consisting of a sequence of answers in 
+    the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise 
+    manner. At the end of your response, list the question IDs of the answers you referenced."""
+# If you do not have enough information to answer the 
+#     quesion, just state you cannot answer the question.
     # Create context
     context = ""
     scores = {}
     alts = []
     count = 0
     for answer in prediction["answers"]:
+
         newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
+
         # Remove docs 
         context += "Question ID: {ID}, Answer: {answer}\n".format(
             ID=answer.meta["cid"], answer=newAnswer)
@@ -176,6 +192,13 @@ def call_gpt(prompt,scores,alts):
 
     confidence = compute_average(ids,scores)
     output = output[ 0 : output.rindex(".") + 1]
+
+    # If confidence is under 75%, output it cannot answer question
+    if confidence < 75:
+        alternates = ""
+        for i in alts:
+            alternates += f"{i.strip()}\n"
+        return f"Sorry, I cannot answer that question.\nHere are some possible sources to reference:\n{alternates}"
    
     output += f"\nConfidence Score: {confidence:.2f}%"
     output += f"\nSources:\n"
