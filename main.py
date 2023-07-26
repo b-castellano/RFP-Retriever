@@ -4,6 +4,8 @@ import traceback
 import re
 import json
 
+from data_load import *
+
 import openai
 
 from haystack.nodes import EmbeddingRetriever
@@ -163,7 +165,7 @@ def call_gpt(prompt,scores,alts):
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
     output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
-    output = re.sub("[ ]{2,}", " ", output)
+
 
     # Handle case where gpt doesn't output sources in prompt
     if ids is None or len(ids) == 0:
