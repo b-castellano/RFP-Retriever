@@ -39,7 +39,7 @@ def init():
 def init_store():
     try:
 
-        return FAISSDocumentStore.load(index_path="my_faiss_index1.faiss"), True
+        return FAISSDocumentStore.load(index_path="my_faiss_index.faiss"), True
         
     except:
         return FAISSDocumentStore(
