@@ -3,13 +3,14 @@ import datetime
 from openpyxl import load_workbook
 from io import BytesIO
 import openpyxl
+import pytz
 
 # Compute average of pulled CID confidence scores
-def compute_average(ids, scores):
+def compute_average_score(ids, docs):
     total = 0
     for id in ids:
         id = id.strip()
-        total += scores[id]
+        total += docs[id].score
     if len(ids) > 0:
         avgscore = total / len(ids) ## convert total score to avg
     else:
@@ -153,3 +154,60 @@ def clean_confidences(confidences):
 #    data = [[cell.value for cell in row] for row in ws[range_str]]
 #
 #    validations = ws.data_validations.dataValidation
+
+
+
+# def get_email_text(query, best_sme, email_header, email_content):
+def get_email_text(query, best_sme):
+
+    print("Drafting email...")
+    # Get response from OpenAI
+    # prompt = f"Please write a brief and professional business email to someone named {best_sme} asking {query}. Include only the text of the email in your response, not any sort of email address, and should be formatted nicely. The email should start with Subject: __ \n\nand end with the exact string \n\n'[Your Name]'."
+    # response = openai.Completion.create(
+    #     engine='immerse-3-5',
+    #     prompt=prompt,
+    #     temperature=0.3,
+    #     max_tokens=400,
+    #     frequency_penalty=0.0,
+    #     presence_penalty=0,
+    # )
+    # Substitute sections of email text and write
+    # email_response = response.choices[0].text
+    # subject_index = email_response.find("Subject:")
+    # name_index = email_response.find("[Your Name]")
+    # email_response = email_response[subject_index:name_index+len("[Your Name]")].strip()
+    # email_content.write(email_response)
+
+
+    user_tz = pytz.timezone('US/Central')  # Potential extension: with user's actual time zone?
+    now = datetime.datetime.now(user_tz)
+
+    # Calculate date for response deadline (default is 3 business days from now)
+    deadline = now + datetime.timedelta(days=3)
+    while deadline.weekday() >= 5:  # Skip weekends (Saturday=5, Sunday=6)
+        deadline += datetime.timedelta(days=1)
+
+    email_text = f"""Subject: [subject of question]
+
+    Good [morning/afternoon] {best_sme},
+
+    We are working on a Security request for one of our customers. Their Technical Questionnaire has a question(s) for which you are listed as the subject matter expert. Please provide a response to the following question, after which we will add it to our database of standard enterprise content.
+
+    
+
+    {query}
+
+    
+
+    Our time is limited. Please provide a response by no later than {deadline.strftime('%I:%M %p')}, {deadline.strftime('%A')}, {deadline.strftime('%m/%d')}.
+
+    If you require more time, or if the question(s) need to be redirected please respond upon receipt of this email so we have adequate time to redirect to the appropriate person(s).
+
+    If you have questions or require additional information about the customer, products and/or services please reach out.
+
+    Kind Regards,
+
+    
+
+    [Your Name]"""
+    return email_text

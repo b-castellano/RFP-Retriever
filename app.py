@@ -22,28 +22,6 @@ from streamlit_extras.add_vertical_space import add_vertical_space
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# Draft email to sme through OpenAI API Call
-def email_sme(query, best_sme, email_header, email_content):
-    print("Drafting email...")
-    email_header.markdown("### Email To SME:")
-
-    # Get response from OpenAI
-    prompt = f"Please write a brief and professional business email to someone named {best_sme} asking {query}. Include only the text of the email in your response, not any sort of email address, and should be formatted nicely. The email should start with Subject: __ \n\nand end with the exact string \n\n'[Your Name]'."
-    response = openai.Completion.create(
-        engine='immerse-3-5',
-        prompt=prompt,
-        temperature=0.3,
-        max_tokens=400,
-        frequency_penalty=0.0,
-        presence_penalty=0,
-    )
-
-    # Substitute sections of email text and write
-    email_response = response.choices[0].text
-    subject_index = email_response.find("Subject:")
-    name_index = email_response.find("[Your Name]")
-    email_response = email_response[subject_index:name_index+len("[Your Name]")].strip()
-    email_content.write(email_response)
 
 ### Setup session storage
 st.session_state.responses = []
@@ -146,7 +124,9 @@ def main():
                 # Write drafted email
                 with draft_email.expander('Draft an email to the SME'):
                     if draft_email.expander:
-                        email_sme(query, best_sme, email_header, email_content)
+                        email_text = utils.get_email_text(query, best_sme)
+                        email_header.markdown("### Email to SME:")
+                        email_content.write(email_text)
                 questions.clear()
 
             elif len(questions) > 1: # Multiple questions case
