@@ -1,10 +1,7 @@
 altair
-pandas
-numpy
 datasets
 langchain
 PyPDF2
-python-dotenv
 streamlit
 faiss-cpu
 streamlit-extras
@@ -16,3 +13,6 @@ PyYAML
 farm-haystack[faiss]
 farm-haystack[inference]
 pyperclip
+numpy
+threading
+openpyxl

@@ -8,7 +8,6 @@
 # #     && rm -rf /var/lib/apt/lists/*
 
 # # RUN git clone <some repo link here> .
-
 # COPY requirements.txt requirements.txt
 # RUN pip3 install --upgrade pip
 # RUN apt-get update --fix-missing && apt-get upgrade -y && apt-get dist-upgrade -y

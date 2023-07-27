@@ -1,9 +1,6 @@
-# VectorDB & Retriever Front-End (Demo)
+# RFP Retriever
 
-## RFP QA Bot
-
-A concise and accurate Q&A bot for RFPs (requests for proposals), sourcing data from RFPIO and sharepoint
-
+## A concise and accurate Q&A bot for RFPs (requests for proposals), sourcing data from RFPIO and sharepoint
 
 ### Steps to run:
 
@@ -11,12 +8,12 @@ A concise and accurate Q&A bot for RFPs (requests for proposals), sourcing data 
     pip3 -r requirements.txt
 into the terminal
 
-2. Add a file called gpt-config.json, with the following contents:
-    {
-        "api_key": "<your_api_key_here>",
-        "api_type": "azure",
-        "api_version": "2023-06-01-preview",
-        "api_base": "https://immerse.openai.azure.com/"
+2. Add a file called gpt-config.json, with the following contents: /
+    { /
+        "api_key": "<your_api_key_here>", /
+        "api_type": "azure", /
+        "api_version": "2023-06-01-preview", /
+        "api_base": "https://immerse.openai.azure.com/" /
     }
 
 3. In the terminal, enter:
