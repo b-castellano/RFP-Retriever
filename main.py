@@ -117,7 +117,7 @@ def query_faiss(query, pipe):
     docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
 
     # If there is a close match between user question and pulled doc, then just return that doc's answer
-    print(docs["documents"][0].score)
+    print(docs["documents"])
     if docs["documents"][0].score > .95:
         return docs["documents"][0], True
         
@@ -131,11 +131,13 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
+    prefix = """Assistant is a large language model designed to answer questions for an Information Security enterprise professionally. Provided is  some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
     context = ""
     scores = {}
     alts = []
     count = 0
+
+    
     for answer in prediction["answers"]:
 
         newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
@@ -153,18 +155,39 @@ def create_prompt(query, prediction):
             count+=1
 
     input_prompt = prompt.format(prefix=prefix, question=query, context=context)
-    return input_prompt, scores, alts
+
+    messages=[
+        {"role": "system", "content": input_prompt},
+        {"role": "user", "content": "Is company information backed up regularly?"},
+        {"role": "assistant", "content": 
+        """
+        Yes. (CID10491, CID94823)
+        """},
+        {"role": "user", "content": "How are offsite backup processes managed to protect against ransomware?"},
+        {"role": "assistant", "content": 
+        """
+        All of our controls, monitoring, and policies are designed to prevent the spread of Ransomware anywhere in our 
+        environment. Systems/Servers are backed up at a given site, those backups are then replicated to an UHG owned 
+        offsite location over our private internal network. The physical servers, application and virtual servers being 
+        backed up cannot access or modify the offsite copy of the data and are not accessible via the public internet.
+        In other words if the original server gets infected, it cannot access the replicated copy, which is used for 
+        restoration purposes only. The backup solution from IBM additionally provides ransomware detection configurations 
+        which we have implemented to ensure that security alerts for potential data attacks are bubbled up for action at 
+        the point of detection. (CID83724, CID53133, CID00947)
+        """
+        },
+        {"role": "user", "content": query},
+    ]
+    return messages, scores, alts
 
 # Call openai API
-def call_gpt(prompt,scores,alts):
+def call_gpt(messages,scores,alts):
 
     deployment_id = "deployment-ae1a29d047eb4619a2b64fb755ae468f"
 
-    response = openai.Completion.create(
+    response = openai.ChatCompletion.create(
         engine=deployment_id,
-        prompt=(f"Original Question: {prompt}\n"
-                "Answer:"
-                ),
+        messages=messages,
         max_tokens=500,
         n=1,
         top_p=0.7,
@@ -174,7 +197,7 @@ def call_gpt(prompt,scores,alts):
         presence_penalty=0.0
     )
     
-    output = response['choices'][0]['text'].replace('\n', '').replace(' .', '.').strip()
+    output = response['choices'][0]['message']['content']
 
     ids = re.findall("CID\d+", output)
     ids = list(set(ids))
