@@ -9,6 +9,8 @@ import openai
 import traceback
 import pyperclip as pc
 import threading
+from bokeh.models.widgets import Button
+from bokeh.models import CustomJS
 
 # External Files
 import utils
@@ -46,6 +48,7 @@ def main():
     st.header("Ask a Question:")
 
     file_upload = st.checkbox("Upload questions from file")
+    file_prev = st.empty()
 
     # Read questions from file uploaded and gather row data
     questions = []
@@ -62,7 +65,7 @@ def main():
                 questions = questions[:50]  
 
     # Prompt options --> May remove
-    options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
+    # options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
     # selected_option = st.selectbox('Desired answer type:', options=options, index=0)
     # nda_status = st.checkbox("NDA Signed?")
 
@@ -77,6 +80,7 @@ def main():
     confidence_slot = st.empty()
     sources_header = st.empty()
     sources_slot = st.empty()
+    sources_slot_copy_button = st.empty()
     best_sme_slot = st.empty()
 
     draft_email = st.empty()
@@ -108,7 +112,7 @@ def main():
                     pc.copy(output) 
 
                 # Display confidence, sources, SMEs
-                confidence_slot.markdown(conf)
+                confidence_slot.markdown(f"**Confidence Score:** \n {conf}")
                 sources_header.markdown(f"**Sources:**")
 
                 # Create a markdown table
@@ -182,21 +186,46 @@ def main():
                 # Clean confidences for display on page
                 confidences = utils.clean_confidences(confidences)
 
-                # Create a markdown table
-                markdown_table = "| Question | Answer | Confidence |\n| --- | --- | --- |\n|" 
-                for i in range(len(CIDs)):
-                    markdown_table += "{0} | {1} | {2} |\n|".format(questions[i], answers[i], confidences[i]) 
-                sources_slot.write(markdown_table, unsafe_allow_html=True)
-
+                # # Create a markdown table
+                # markdown_table = "| Question | Answer | Confidence |\n| --- | --- | --- |\n|" 
+                # for i in range(len(CIDs)):
+                #     markdown_table += "{0} | {1} | {2} |\n|".format(questions[i], answers[i], confidences[i]) 
+                # sources_slot.write(markdown_table, unsafe_allow_html=True)
+                
+                sources_slot.write(df)
                 #  Download file for multiple questions answers
                 st.markdown("### Download")
 
                 # Format for excel
                 df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
+                sources_slot.write(df)
+        
+
+                # Copy button for only question, answer columns
+                copy_button = Button(label="Copy Questions, Answers only")
+                df_copy = df.iloc[:, :2].to_csv(sep='\t') # Select first two columns and convert to CSV
+                copy_button.js_on_event("button_click", CustomJS(args=dict(df=df_copy), code=""" navigator.clipboard.writeText(df); """))
+                copy_button.css_classes = ["streamlit-button"]
+                sources_slot_copy_button.bokeh_chart(copy_button)
+                # Copy button for all of df
+                copy_button = Button(label="Copy All")
+                copy_button.js_on_event("button_click", CustomJS(args=dict(df=df.to_csv(sep='\t')), code="""
+                    navigator.clipboard.writeText(df);
+                    """))
+                copy_button.css_classes = ["streamlit-button"]
+                sources_slot_copy_button.bokeh_chart(copy_button)
+
+                # Download buttons for csv/excel
                 file = utils.to_excel(df, rows)
-                
-                st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
-                st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.download_button(label='Download Excel', data=file.getvalue(), file_name="text_2.xlsx")
+
+                with col2:
+                    st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
+
+                # st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
+                # st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
 
             else:
                 st.error("No questions detected")

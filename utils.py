@@ -6,15 +6,12 @@ import openpyxl
 import pytz
 
 # Compute average of pulled CID confidence scores
-def compute_average_score(ids, docs):
+def compute_average_score(docs):
     total = 0
-    for id in ids:
-        id = id.strip()
-        total += docs[id].score
-    if len(ids) > 0:
-        avgscore = total / len(ids) ## convert total score to avg
-    else:
-        avgscore = 0
+    for doc in docs.values():
+        total += doc.score
+        avgscore = total / len(docs) ## convert total score to avg
+    
     avgscore *= 100 ## convert from decimal to percentage
     return avgscore
 
@@ -178,15 +175,6 @@ def get_email_text(query, best_sme):
     # email_response = email_response[subject_index:name_index+len("[Your Name]")].strip()
     # email_content.write(email_response)
 
-
-    user_tz = pytz.timezone('US/Central')  # Potential extension: with user's actual time zone?
-    now = datetime.datetime.now(user_tz)
-
-    # Calculate date for response deadline (default is 3 business days from now)
-    deadline = now + datetime.timedelta(days=3)
-    while deadline.weekday() >= 5:  # Skip weekends (Saturday=5, Sunday=6)
-        deadline += datetime.timedelta(days=1)
-
     email_text = f"""Subject: [subject of question]
 
     Good [morning/afternoon] {best_sme},
@@ -199,7 +187,7 @@ def get_email_text(query, best_sme):
 
     
 
-    Our time is limited. Please provide a response by no later than {deadline.strftime('%I:%M %p')}, {deadline.strftime('%A')}, {deadline.strftime('%m/%d')}.
+    Our time is limited. Please provide a response by no later than [time], [Day], [mm/dd].
 
     If you require more time, or if the question(s) need to be redirected please respond upon receipt of this email so we have adequate time to redirect to the appropriate person(s).
 

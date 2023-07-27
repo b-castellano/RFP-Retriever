@@ -116,38 +116,60 @@ def get_response(pipe, query):
         sme = prediction.meta["sme"]
         best_sme = prediction.meta["sme"]
         
-        return answer, conf, cid, source_link, sme, best_sme
+        return answer, conf, cid, source_link, source_filename, sme, best_sme
 
     # No close match, so generate prompt from related docs
     else:
     
         messages, docs = create_prompt(query, prediction)
-        answer, ids = call_gpt(messages)
+        answer, ids = call_gpt(messages, docs)
 
-        return answer, get_info(prediction, docs, ids)
-        
+        conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
+
+        # If confidence is under 75%, output it cannot answer question
+        if conf < 75:
+            answer = "Sorry, I cannot answer that question.\nHere are some possible sources to reference:"
+
+        return answer, conf, CIDs, source_links, source_filenames, SMEs, best_sme
+
+# Gets additional data for output
 def get_info(prediction, docs, ids):
 
-    CIDs, SMEs, source_filenames, source_links, docs_used = []
+    CIDs = []
+    SMEs = []
+    source_filenames = []
+    source_links = []
+    docs_used = {}
     
     if ids == None: # If gpt did not find ids
-        for answer in prediction:
+        for answer in prediction["answers"]:
             CIDs.append(answer.meta["cid"])
             source_links.append(answer.meta["url"])
             SMEs.append(answer.meta["sme"])
             source_filenames.append(answer.meta["file name"])
             docs_used[answer.meta["cid"]] = answer
+
+        best_sme = prediction["answers"][0].meta["sme"]
     else:
+
+        best_score = 0
         for id in ids:  # If gpt found ids
+            
             CIDs.append(docs[id].meta["cid"])
             source_links.append(docs[id].meta["url"])
             SMEs.append(docs[id].meta["sme"])
             source_filenames.append(docs[id].meta["file name"])
-            docs_used[docs[id].meta["cid"]] = answer
+            docs_used[docs[id].meta["cid"]] = docs[id]
+        
+            if best_score < docs_used[id].score:
+                best_sme = docs_used[id].meta["sme"]
 
     conf = utils.compute_average_score(docs_used)
 
-    return conf, CIDs, source_links, source_filenames, SMEs
+
+    print(f"conf:{conf}, Cids:{CIDs}, Source Links:{source_links}, Source Filenames: {source_filenames}, SMEs:{SMEs}, best SME:{best_sme}")
+
+    return conf, CIDs, source_links, source_filenames, SMEs, best_sme
 
         
 # Get top k documents related to query from vector datastore
@@ -155,7 +177,6 @@ def query_faiss(query, pipe):
     docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
 
     # If there is a close match (>=95% confidence) between user question and pulled doc, then just return that doc's answer
-    print(docs["documents"])
     if docs["documents"][0].score >= .95:
         return docs["documents"][0], True
     
@@ -243,11 +264,5 @@ def call_gpt(messages, docs):
     # Handle case where gpt doesn't output sources in prompt
     if ids is None or len(ids) == 0:
         return output, None
-
-    confidence = utils.compute_average_score(ids, docs)
-
-    # If confidence is under 75%, output it cannot answer question
-    if confidence < 75:
-        return f"Sorry, I cannot answer that question.\nHere are some possible sources to reference:", None
 
     return output, ids
