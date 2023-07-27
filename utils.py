@@ -2,6 +2,7 @@ import pandas as pd
 import datetime
 from openpyxl import load_workbook
 from io import BytesIO
+import openpyxl
 
 # Compute average of pulled CID confidence scores
 def compute_average(ids, scores):
@@ -84,11 +85,13 @@ def read_questions(file):
     questions = []
     rows = []
     for _, row in df.iterrows():
+        question = ""
         for cell in row:
             if pd.notna(cell):
-                question = str(cell).strip()
-                questions.append(question)
-                rows.append(row)
+                question += (str(cell).strip() + " ")
+        if question != "":
+            questions.append(question)
+            rows.append(row)
     if questions==[]: ## If not question
         return [], 1, []
     return questions, 0, rows
@@ -143,3 +146,10 @@ def clean_confidences(confidences):
         confidences[i] = confidences[i][x+3:]
     return confidences
                     
+#def read_questions_v2(file):
+#    wb = openpyxl.load_workbook(file)
+#    ws = wb.worksheets[0]
+#
+#    data = [[cell.value for cell in row] for row in ws[range_str]]
+#
+#    validations = ws.data_validations.dataValidation
