@@ -108,7 +108,8 @@ def get_response(pipe, query):
 
     # If a close match was found, just return that answer --> Clean up?
     if closeMatch:
-        answer = re.sub("[\[\]'\"]","",prediction.meta["answer"])
+        answer = prediction.meta["answer"].split(",")
+        answer = re.sub("[\[\]'\"]","", answer[0])
         conf = prediction.score * 100
         cid = prediction.meta["cid"]
         source_link = prediction.meta["url"]
@@ -132,44 +133,7 @@ def get_response(pipe, query):
 
         return answer, conf, CIDs, source_links, source_filenames, SMEs, best_sme
 
-# Gets additional data for output
-def get_info(prediction, docs, ids):
 
-    CIDs = []
-    SMEs = []
-    source_filenames = []
-    source_links = []
-    docs_used = {}
-    
-    if ids == None: # If gpt did not find ids
-        for answer in prediction["answers"]:
-            CIDs.append(answer.meta["cid"])
-            source_links.append(answer.meta["url"])
-            SMEs.append(answer.meta["sme"])
-            source_filenames.append(answer.meta["file name"])
-            docs_used[answer.meta["cid"]] = answer
-
-        best_sme = prediction["answers"][0].meta["sme"]
-    else:
-
-        best_score = 0
-        for id in ids:  # If gpt found ids
-            
-            CIDs.append(docs[id].meta["cid"])
-            source_links.append(docs[id].meta["url"])
-            SMEs.append(docs[id].meta["sme"])
-            source_filenames.append(docs[id].meta["file name"])
-            docs_used[docs[id].meta["cid"]] = docs[id]
-        
-            if best_score < docs_used[id].score:
-                best_sme = docs_used[id].meta["sme"]
-
-    conf = utils.compute_average_score(docs_used)
-
-
-    print(f"conf:{conf}, Cids:{CIDs}, Source Links:{source_links}, Source Filenames: {source_filenames}, SMEs:{SMEs}, best SME:{best_sme}")
-
-    return conf, CIDs, source_links, source_filenames, SMEs, best_sme
 
         
 # Get top k documents related to query from vector datastore
@@ -266,3 +230,39 @@ def call_gpt(messages, docs):
         return output, None
 
     return output, ids
+
+# Gets additional data for output
+def get_info(prediction, docs, ids):
+
+    CIDs = []
+    SMEs = []
+    source_filenames = []
+    source_links = []
+    docs_used = {}
+    
+    if ids == None: # If gpt did not find ids
+        for answer in prediction["answers"]:
+            CIDs.append(answer.meta["cid"])
+            source_links.append(answer.meta["url"])
+            SMEs.append(answer.meta["sme"])
+            source_filenames.append(answer.meta["file name"])
+            docs_used[answer.meta["cid"]] = answer
+
+        best_sme = prediction["answers"][0].meta["sme"]
+    else:
+
+        best_score = 0
+        for id in ids:  # If gpt found ids
+            
+            CIDs.append(docs[id].meta["cid"])
+            source_links.append(docs[id].meta["url"])
+            SMEs.append(docs[id].meta["sme"])
+            source_filenames.append(docs[id].meta["file name"])
+            docs_used[docs[id].meta["cid"]] = docs[id]
+        
+            if best_score < docs_used[id].score:
+                best_sme = docs_used[id].meta["sme"]
+
+    conf = utils.compute_average_score(docs_used)
+
+    return conf, CIDs, source_links, source_filenames, SMEs, best_sme

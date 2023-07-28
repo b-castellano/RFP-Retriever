@@ -94,11 +94,11 @@ def main():
 
             if len(questions) == 1: ## Single question case
 
-                # Query database, generate prompt from related docs, initialize gpt-3
+                # Get response from rfp-retriever
                 output, conf, CIDs, source_links, source_filenames, SMEs, best_sme = ps.get_response(pipe, questions[0]) 
-                CIDs, source_links, source_filenames, SMEs = utils.remove_duplicates(CIDs, source_links, source_filenames, SMEs)
+                # CIDs, source_links, source_filenames, SMEs = utils.remove_duplicates(CIDs, source_links, source_filenames, SMEs)
 
-                # Feed prompt into gpt, store query & output in session state
+                # Add query and output to front end
                 st.session_state.responses.append(questions[0])
                 st.session_state.responses.append(output)
 
@@ -112,7 +112,7 @@ def main():
                     pc.copy(output) 
 
                 # Display confidence, sources, SMEs
-                confidence_slot.markdown(f"**Confidence Score:** \n {conf}")
+                confidence_slot.markdown(f"**Confidence Score:** {conf:.2f}%")
                 sources_header.markdown(f"**Sources:**")
 
                 # Create a markdown table
@@ -202,26 +202,26 @@ def main():
         
 
                 # Copy button for only question, answer columns
-                copy_button = Button(label="Copy Questions, Answers only")
+                copy_qa_button = Button(label="Copy Questions, Answers only")
                 df_copy = df.iloc[:, :2].to_csv(sep='\t') # Select first two columns and convert to CSV
-                copy_button.js_on_event("button_click", CustomJS(args=dict(df=df_copy), code=""" navigator.clipboard.writeText(df); """))
-                copy_button.css_classes = ["streamlit-button"]
-                sources_slot_copy_button.bokeh_chart(copy_button)
+                copy_qa_button.js_on_event("button_click", CustomJS(args=dict(df=df_copy), code=""" navigator.clipboard.writeText(df); """))
+                copy_qa_button.css_classes = ["streamlit-button"]
                 # Copy button for all of df
-                copy_button = Button(label="Copy All")
-                copy_button.js_on_event("button_click", CustomJS(args=dict(df=df.to_csv(sep='\t')), code="""
+                copy_all_button = Button(label="Copy All")
+                copy_all_button.js_on_event("button_click", CustomJS(args=dict(df=df.to_csv(sep='\t')), code="""
                     navigator.clipboard.writeText(df);
                     """))
-                copy_button.css_classes = ["streamlit-button"]
-                sources_slot_copy_button.bokeh_chart(copy_button)
+                copy_all_button.css_classes = ["streamlit-button"]
 
-                # Download buttons for csv/excel
+                # Download buttons for csv/excel, put buttons on UI
                 file = utils.to_excel(df, rows)
                 col1, col2 = st.columns(2)
                 with col1:
+                    st.bokeh_chart(copy_qa_button)
                     st.download_button(label='Download Excel', data=file.getvalue(), file_name="text_2.xlsx")
 
                 with col2:
+                    st.bokeh_chart(copy_all_button)
                     st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
 
                 # st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
