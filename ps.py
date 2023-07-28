@@ -65,24 +65,34 @@ def init_pipe(retriever):
 
 # Get response for query
 def get_response(pipe, query):
-    prediction = query_faiss(query, pipe) 
+    prediction, closeMatch = query_faiss(query, pipe) 
 
     # Generate prompt from related docs
     prompt, scores, alts, CIDs, source_links, source_filenames, SMEs, best_sme = create_prompt(query, prediction)
-    output, conf = call_gpt(prompt, scores, alts)
     
-    # cleanup two periods response bug --> delete?
-    # x = re.search("\.\s+\.", output)
-    # if x is not None and x>= 0:
-    #     output = output[:x+1]
-
-    output = re.sub("\.\s+\.", ".", output)
+    if closeMatch:
+        newAnswer = re.sub("[\[\]'\"]","",prediction.meta["answer"])
+        score = prediction.score * 100
+        #source = prediction.meta["cid"]
+        output = newAnswer
+        conf = score
+    else:
+        output, conf = call_gpt(prompt, scores, alts)
+    
+    #output = re.sub("\.\s+\.", ".", output)
 
     return output, conf, CIDs, source_links, source_filenames, SMEs, best_sme
 
 # Get top k documents related to query from datastore
 def query_faiss(query, pipe):
-    return pipe.run(query=query, params={"Retriever": {"top_k": 5}})
+    docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
+
+    # If there is a close match between user question and pulled doc, then just return that doc's answer
+    print(docs["documents"])
+    if docs["documents"][0].score > .95:
+        return docs["documents"][0], True
+        
+    return docs, False
 
 # Create prompt template
 def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No", "Elaborate", etc. for answer preferences
