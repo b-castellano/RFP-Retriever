@@ -1,13 +1,21 @@
-import openai
 import pandas as pd
+from datasets import load_dataset
+import traceback
 import re
-import threading
 import json
-from haystack.document_stores import FAISSDocumentStore
+
+import openai
+
 from haystack.nodes import EmbeddingRetriever
+from haystack import Document
+from haystack.document_stores import FAISSDocumentStore
 from haystack.pipelines import FAQPipeline
+from haystack.utils import print_answers
+
+
+import langchain
 from langchain.prompts import PromptTemplate
-import utils
+from langchain.prompts.few_shot import FewShotPromptTemplate
 
 def init():
     # Initialize document store
@@ -26,24 +34,29 @@ def init():
     # Initialize pipeline for document search
     return init_pipe(retriever)
 
-# Initialize FAISS datastore
 def init_store():
     try:
+
         return FAISSDocumentStore.load(index_path="my_faiss_index.faiss"), True
+        
     except:
         return FAISSDocumentStore(
             similarity="cosine",
             embedding_dim=768,
             duplicate_documents='overwrite'
         ), False
-    
-# Initialize retriever for documents in vector DB
+
 def init_retriever(document_store):
     return EmbeddingRetriever(
         document_store=document_store,
         embedding_model="flax-sentence-embeddings/all_datasets_v3_mpnet-base",
         model_format="sentence_transformers"
     )
+
+
+
+def init_pipe(retriever):
+    return FAQPipeline(retriever=retriever)
 
 # Initialize gpt configurations
 def init_gpt():
@@ -59,10 +72,6 @@ def init_gpt():
     openai.api_type = content["api_type"] 
     openai.api_version = content["api_version"]
     openai.api_base = content["api_base"]
-
-# Initialize the pipeline
-def init_pipe(retriever):
-    return FAQPipeline(retriever=retriever)
 
 def write_docs(document_store, retriever):
     # Get dataframe with columns "question", "answer" and some custom metadata
@@ -85,84 +94,53 @@ def write_docs(document_store, retriever):
     print("docs added:", document_store.get_document_count())
     print("docs embedded:", document_store.get_embedding_count())
 
-# Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i):
-    question = questions[i]
-
-    output, conf, CIDs_i, source_links_i, source_filenames_i, SMEs_i, best_sme = get_response(pipe, question)
-    CIDs_i, source_links_i, source_filenames_i, SMEs_i = utils.remove_duplicates(CIDs_i, source_links_i, source_filenames_i, SMEs_i)
-    
-    # Feed prompt into gpt, store query & output in session state
-    answers[i] = output
-    CIDs[i] = CIDs_i
-    source_links[i] = source_links_i
-    source_filenames[i] = source_filenames_i
-    SMEs[i] = SMEs_i
-    confidences[i] = conf
-
-    print(f"Thread {threading.get_ident()} finished processing question {i+1}")
-
-# Get response for query
 def get_response(pipe, query):
+    
     prediction, closeMatch = query_faiss(query, pipe)
 
-    # If a close match was found, just return that answer --> Clean up?
+    # If a close match was found (direct RFPIO document), just output that answer
     if closeMatch:
-        answer = prediction.meta["answer"].split(",")
-        answer = re.sub("[\[\]'\"]","", answer[0])
-        conf = prediction.score * 100
-        cid = prediction.meta["cid"]
-        source_link = prediction.meta["url"]
-        source_filename = prediction.meta["file name"]
-        sme = prediction.meta["sme"]
-        best_sme = prediction.meta["sme"]
+        newAnswer = re.sub("[\[\]'\"]","",prediction.meta["answer"])
+        score = prediction.score * 100
+        source = prediction.meta["cid"]
         
-        return answer, conf, cid, source_link, source_filename, sme, best_sme
+        return f"{newAnswer}\nConfidence Score: {score:.2f}%\nSources: \n{source}"
 
-    # No close match, so generate prompt from related docs
+    # No close match, so generate prompt from related docs (call GPT)
     else:
-    
-        messages, docs = create_prompt(query, prediction)
-        answer, ids = call_gpt(messages, docs)
+        prompt,scores, alts = create_prompt(query, prediction)
 
-        conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
+        # Feed prompt into gpt
+        return call_gpt(prompt, scores, alts)
 
-        # If confidence is under 75%, output it cannot answer question
-        #if conf < 75:
-        #    answer = "Sorry, I cannot answer that question.\nHere are some possible sources to reference:"
-
-        return answer, conf, CIDs, source_links, source_filenames, SMEs, best_sme
-
-
-
-        
 # Get top k documents related to query from vector datastore
 def query_faiss(query, pipe):
     docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
 
     # If there is a close match (>=95% confidence) between user question and pulled doc, then just return that doc's answer
+    print(docs["documents"])
     if docs["documents"][0].score >= .95:
         return docs["documents"][0], True
     
     # No close match
     else:
         return docs, False
-        
+
+
 # Create prompt template
-def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No", "Elaborate", etc. for answer preferences
-    print("Creating prompt")
+def create_prompt(query, prediction):
+
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner with explanation. Just at the end, list the question IDs of the answers you referenced to formulate your response."""
-    
-    # Create context
+    prefix = """Assistant is a large language model designed to answer questions for an Information Security enterprise professionally. Provided is  some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
     context = ""
+    scores = {}
+    alts = []
+    count = 0
 
-    # Used to get scores of prompts later on
-    docs = {}
-
+    
     for answer in prediction["answers"]:
 
         newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
@@ -172,8 +150,13 @@ def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No",
             ID=answer.meta["cid"], answer=newAnswer)
         
         # Add ID-Score pair to dict
-        docs[answer.meta["cid"]] = answer
-        
+        scores[answer.meta["cid"]] = answer.score
+
+        if (count < 3):
+            
+            alts.append(answer.meta["cid"])
+            count+=1
+
     system_prompt = prompt.format(prefix=prefix, question=query, context=context)
 
     messages=[
@@ -198,11 +181,10 @@ def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No",
         },
         {"role": "user", "content": query},
     ]
+    return messages, scores, alts
 
-    return messages, docs
-    
-# Call openai API and compute confidence
-def call_gpt(messages, docs):
+# Call openai API
+def call_gpt(messages,scores,alts):
 
     deployment_id = "deployment-ae1a29d047eb4619a2b64fb755ae468f"
 
@@ -212,11 +194,12 @@ def call_gpt(messages, docs):
         max_tokens=500,
         n=1,
         top_p=0.7,
-        temperature=0.3,
+        temperature=0.3
+        ,
         frequency_penalty=0.0,
         presence_penalty=0.0
     )
-
+    
     output = response['choices'][0]['message']['content']
 
     # Extract CIDs from gpt output
@@ -225,44 +208,72 @@ def call_gpt(messages, docs):
     ids = list(set(ids))
     output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
 
+
     # Handle case where gpt doesn't output sources in prompt
     if ids is None or len(ids) == 0:
-        return output, None
+        alternateSources = ""
+        for i in alts:
+            alternateSources += f"{i.strip()}\n"
+        return f"{output}\nHere are some possible sources to reference:\n{alternateSources}"
 
-    return output, ids
+    confidence = compute_average(ids,scores)
 
-# Gets additional data for output
-def get_info(prediction, docs, ids):
+    # If confidence is under 75%, output it cannot answer question
+    if confidence < 75:
+        alternates = ""
+        for i in alts:
+            alternates += f"{i.strip()}\n"
+        return f"Sorry, I cannot answer that question.\nHere are some possible sources to reference:\n{alternates}"
+   
+    output += f"\nConfidence Score: {confidence:.2f}%"
+    output += f"\nSources:\n"
 
-    CIDs = []
-    SMEs = []
-    source_filenames = []
-    source_links = []
-    docs_used = {}
-    
-    if ids == None: # If gpt did not find ids
-        for answer in prediction["answers"]:
-            CIDs.append(answer.meta["cid"])
-            source_links.append(answer.meta["url"])
-            SMEs.append(answer.meta["sme"])
-            source_filenames.append(answer.meta["file name"])
-            docs_used[answer.meta["cid"]] = answer
+    for i in ids:
+        output += f"{i.strip()}\n"
 
-        best_sme = prediction["answers"][0].meta["sme"]
-    else:
+    return output
 
-        best_score = 0
-        for id in ids:  # If gpt found ids
+def compute_average(ids, scores):
+
+    total = 0
+
+    for id in ids:
+
+        id = id.strip()
+        total += scores[id]
+
+    avgscore = total / len(ids)     # convert total score to avg
+    avgscore *= 100                 # convert from decimal to percentage
+
+    return avgscore
+
+
+
+def main():
+
+    try:
+
+        # Initialize FAISS store and create pipe instance
+        pipe= init()
+
+        while(True):
             
-            CIDs.append(docs[id].meta["cid"])
-            source_links.append(docs[id].meta["url"])
-            SMEs.append(docs[id].meta["sme"])
-            source_filenames.append(docs[id].meta["file name"])
-            docs_used[docs[id].meta["cid"]] = docs[id]
+            # Users question
+            query = input("Please ask a question. Reply 'STOP' to stop:")
+
+            if query == "STOP":
+                break
+
+            output = get_response(pipe, query)
+            print(f"OUTPUT:\n{output}")
         
-            if best_score < docs_used[id].score:
-                best_sme = docs_used[id].meta["sme"]
 
-    conf = utils.compute_average_score(docs_used)
+       
 
-    return conf, CIDs, source_links, source_filenames, SMEs, best_sme
+    except:
+        
+        print("Error initializing var")
+        traceback.print_exc()
+
+if __name__ == "__main__":
+    main()

@@ -9,6 +9,8 @@ import openai
 import traceback
 import pyperclip as pc
 import threading
+from bokeh.models.widgets import Button
+from bokeh.models import CustomJS
 
 # External Files
 import utils
@@ -22,28 +24,6 @@ from streamlit_extras.add_vertical_space import add_vertical_space
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# Draft email to sme through OpenAI API Call
-def email_sme(query, best_sme, email_header, email_content):
-    print("Drafting email...")
-    email_header.markdown("### Email To SME:")
-
-    # Get response from OpenAI
-    prompt = f"Please write a brief and professional business email to someone named {best_sme} asking {query}. Include only the text of the email in your response, not any sort of email address, and should be formatted nicely. The email should start with Subject: __ \n\nand end with the exact string \n\n'[Your Name]'."
-    response = openai.Completion.create(
-        engine='immerse-3-5',
-        prompt=prompt,
-        temperature=0.3,
-        max_tokens=400,
-        frequency_penalty=0.0,
-        presence_penalty=0,
-    )
-
-    # Substitute sections of email text and write
-    email_response = response.choices[0].text
-    subject_index = email_response.find("Subject:")
-    name_index = email_response.find("[Your Name]")
-    email_response = email_response[subject_index:name_index+len("[Your Name]")].strip()
-    email_content.write(email_response)
 
 ### Setup session storage
 st.session_state.responses = []
@@ -68,6 +48,7 @@ def main():
     st.header("Ask a Question:")
 
     file_upload = st.checkbox("Upload questions from file")
+    file_prev = st.empty()
 
     # Read questions from file uploaded and gather row data
     questions = []
@@ -81,10 +62,10 @@ def main():
             elif errCode ==2:
                 st.error("File type not supported. Please upload a CSV or Excel file.")
             else:
-                questions = questions[:50]  
+                questions = questions[:60]  
 
     # Prompt options --> May remove
-    options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
+    # options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
     # selected_option = st.selectbox('Desired answer type:', options=options, index=0)
     # nda_status = st.checkbox("NDA Signed?")
 
@@ -99,6 +80,7 @@ def main():
     confidence_slot = st.empty()
     sources_header = st.empty()
     sources_slot = st.empty()
+    sources_slot_copy_button = st.empty()
     best_sme_slot = st.empty()
 
     draft_email = st.empty()
@@ -112,11 +94,11 @@ def main():
 
             if len(questions) == 1: ## Single question case
 
-                # Query database, generate prompt from related docs, initialize gpt-3
+                # Get response from rfp-retriever
                 output, conf, CIDs, source_links, source_filenames, SMEs, best_sme = ps.get_response(pipe, questions[0]) 
-                CIDs, source_links, source_filenames, SMEs = utils.remove_duplicates(CIDs, source_links, source_filenames, SMEs)
+                # CIDs, source_links, source_filenames, SMEs = utils.remove_duplicates(CIDs, source_links, source_filenames, SMEs)
 
-                # Feed prompt into gpt, store query & output in session state
+                # Add query and output to front end
                 st.session_state.responses.append(questions[0])
                 st.session_state.responses.append(output)
 
@@ -130,7 +112,7 @@ def main():
                     pc.copy(output) 
 
                 # Display confidence, sources, SMEs
-                confidence_slot.markdown(conf)
+                confidence_slot.markdown(f"**Confidence Score:** {conf:.2f}%")
                 sources_header.markdown(f"**Sources:**")
 
                 # Create a markdown table
@@ -146,7 +128,9 @@ def main():
                 # Write drafted email
                 with draft_email.expander('Draft an email to the SME'):
                     if draft_email.expander:
-                        email_sme(query, best_sme, email_header, email_content)
+                        email_text = utils.get_email_text(query, best_sme)
+                        email_header.markdown("### Email to SME:")
+                        email_content.write(email_text)
                 questions.clear()
 
             elif len(questions) > 1: # Multiple questions case
@@ -202,21 +186,45 @@ def main():
                 # Clean confidences for display on page
                 confidences = utils.clean_confidences(confidences)
 
-                # Create a markdown table
-                markdown_table = "| Question | Answer | Confidence |\n| --- | --- | --- |\n|" 
-                for i in range(len(CIDs)):
-                    markdown_table += "{0} | {1} | {2} |\n|".format(questions[i], answers[i], confidences[i]) 
-                sources_slot.write(markdown_table, unsafe_allow_html=True)
+                # # Create a markdown table
+                # markdown_table = "| Question | Answer | Confidence |\n| --- | --- | --- |\n|" 
+                # for i in range(len(CIDs)):
+                #     markdown_table += "{0} | {1} | {2} |\n|".format(questions[i], answers[i], confidences[i]) 
+                # sources_slot.write(markdown_table, unsafe_allow_html=True)
 
                 #  Download file for multiple questions answers
                 st.markdown("### Download")
 
                 # Format for excel
                 df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
+                sources_slot.write(df)
+        
+
+                # Copy button for only question, answer columns
+                copy_qa_button = Button(label="Copy Questions, Answers only")
+                df_copy = df.iloc[:, :2].to_csv(sep='\t') # Select first two columns and convert to CSV
+                copy_qa_button.js_on_event("button_click", CustomJS(args=dict(df=df_copy), code=""" navigator.clipboard.writeText(df); """))
+                copy_qa_button.css_classes = ["streamlit-button"]
+                # Copy button for all of df
+                copy_all_button = Button(label="Copy All")
+                copy_all_button.js_on_event("button_click", CustomJS(args=dict(df=df.to_csv(sep='\t')), code="""
+                    navigator.clipboard.writeText(df);
+                    """))
+                copy_all_button.css_classes = ["streamlit-button"]
+
+                # Download buttons for csv/excel, put buttons on UI
                 file = utils.to_excel(df, rows)
-                
-                st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
-                st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.bokeh_chart(copy_qa_button)
+                    st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
+
+                with col2:
+                    st.bokeh_chart(copy_all_button)
+                    st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
+
+                # st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
+                # st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
 
             else:
                 st.error("No questions detected")
