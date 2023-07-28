@@ -86,18 +86,26 @@ def write_docs(document_store, retriever):
     print("docs embedded:", document_store.get_embedding_count())
 
 # Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i):
+def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i):
     question = questions[i]
 
-    output, conf, CIDs_i, source_links_i, source_filenames_i, SMEs_i, best_sme = get_response(pipe, question)
-    CIDs_i, source_links_i, source_filenames_i, SMEs_i = utils.remove_duplicates(CIDs_i, source_links_i, source_filenames_i, SMEs_i)
     
+    output, conf, CIDs_i, source_links_i, source_filenames_i, SMEs, best_sme = get_response(pipe, question)
+    # CIDs_i, source_links_i, source_filenames_i, SMEs_i = utils.remove_duplicates(CIDs_i, source_links_i, source_filenames_i, SMEs_i)
+    if type(source_links_i) == str:
+       source_links_i = [source_links_i]
+    if type(source_filenames_i) == str and source_filenames_i != None:
+        source_filenames_i = [source_filenames_i]
+
+    source_links_i = list(filter(None, source_links_i))
+    source_filenames_i = list(filter(None, source_filenames_i))
+
     # Feed prompt into gpt, store query & output in session state
     answers[i] = output
     CIDs[i] = CIDs_i
     source_links[i] = source_links_i
     source_filenames[i] = source_filenames_i
-    SMEs[i] = SMEs_i
+    best_SMEs[i] = best_sme
     confidences[i] = conf
 
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
@@ -110,11 +118,16 @@ def get_response(pipe, query):
     if closeMatch:
         answer = prediction.meta["answer"].split(",")
         answer = re.sub("[\[\]'\"]","", answer[0])
-        conf = prediction.score * 100
+        conf = (prediction.score * 100)
+        conf = f"{round(conf,2)}%"
         cid = prediction.meta["cid"]
+        cid = [cid]
         source_link = prediction.meta["url"]
+        source_link = [source_link]
         source_filename = prediction.meta["file name"]
+        source_filename = [source_filename]
         sme = prediction.meta["sme"]
+        sme = [sme]
         best_sme = prediction.meta["sme"]
         
         return answer, conf, cid, source_link, source_filename, sme, best_sme
@@ -126,16 +139,16 @@ def get_response(pipe, query):
         answer, ids = call_gpt(messages, docs)
 
         conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
+        conf = f"{round(conf,2)}%"
 
-        # If confidence is under 75%, output it cannot answer question
-        if conf < 75:
-            answer = "Sorry, I cannot answer that question.\nHere are some possible sources to reference:"
+        # If confidence is under 75%, output it cannot answer question --> Disabled for debug purposes
+        #if conf < 75:
+        #    answer = "Sorry, I cannot answer that question.\nHere are some possible sources to reference:"
 
         return answer, conf, CIDs, source_links, source_filenames, SMEs, best_sme
 
 
 
-        
 # Get top k documents related to query from vector datastore
 def query_faiss(query, pipe):
     docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
@@ -150,13 +163,21 @@ def query_faiss(query, pipe):
         
 # Create prompt template
 def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No", "Elaborate", etc. for answer preferences
+
     print("Creating prompt")
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner with explanation. Just at the end, list the question IDs of the answers you referenced to formulate your response."""
+    # prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. 
+    # Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers 
+    # within the context to answer the original question in a concise manner. If the question can be answered with yes or no, then do so. Just at the end, 
+    # list the question IDs of the answers you referenced to formulate your response."""
     
+    prefix = """Assistant is a large language model designed by the Security Sages to answer questions for an Information Security enterprise professionally. 
+    Provided is some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. 
+    Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
+
     # Create context
     context = ""
 
@@ -239,6 +260,10 @@ def get_info(prediction, docs, ids):
     source_filenames = []
     source_links = []
     docs_used = {}
+
+    
+
+
     
     if ids == None: # If gpt did not find ids
         for answer in prediction["answers"]:
@@ -249,8 +274,13 @@ def get_info(prediction, docs, ids):
             docs_used[answer.meta["cid"]] = answer
 
         best_sme = prediction["answers"][0].meta["sme"]
+        CIDs = list(set(CIDs))
+        source_links = list(set(source_links))
+        SMEs = list(set(SMEs))
+        source_filenames = list(set(source_filenames))
+        
     else:
-
+        ids = list(set(ids))
         best_score = 0
         for id in ids:  # If gpt found ids
             
@@ -264,5 +294,9 @@ def get_info(prediction, docs, ids):
                 best_sme = docs_used[id].meta["sme"]
 
     conf = utils.compute_average_score(docs_used)
+    conf = round(conf,2)
+    print(conf)
+
+
 
     return conf, CIDs, source_links, source_filenames, SMEs, best_sme

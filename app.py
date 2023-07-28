@@ -96,8 +96,7 @@ def main():
 
                 # Get response from rfp-retriever
                 output, conf, CIDs, source_links, source_filenames, SMEs, best_sme = ps.get_response(pipe, questions[0]) 
-                # CIDs, source_links, source_filenames, SMEs = utils.remove_duplicates(CIDs, source_links, source_filenames, SMEs)
-
+                print(len(CIDs))
                 # Add query and output to front end
                 st.session_state.responses.append(questions[0])
                 st.session_state.responses.append(output)
@@ -112,7 +111,7 @@ def main():
                     pc.copy(output) 
 
                 # Display confidence, sources, SMEs
-                confidence_slot.markdown(f"**Confidence Score:** {conf:.2f}%")
+                confidence_slot.markdown(f"**Confidence Score:** {conf}")
                 sources_header.markdown(f"**Sources:**")
 
                 # Create a markdown table
@@ -137,7 +136,7 @@ def main():
                 print(f"\n\nQuestion length is: {len(questions)}\n\n")
 
                 # Initialize empty lists for answers, CIDs, source_links, source_filenames, SMEs, and confidences
-                answers, CIDs, source_links, source_filenames, SMEs, confidences = [], [], [], [], [], []
+                answers, CIDs, source_links, source_filenames, best_SMEs, confidences = [], [], [], [], [], []
 
                 # Initiate variabels for multi-threading
                 lock = threading.Lock()
@@ -152,11 +151,11 @@ def main():
                         CIDs.append([])
                         source_links.append([])
                         source_filenames.append([])
-                        SMEs.append([])
+                        best_SMEs.append([])
                         confidences.append(0)
 
                     # Start a new thread for each question
-                    thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i))
+                    thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i))
                     thread.start()
                     threads.append(thread)
                     thread.join()
@@ -177,29 +176,23 @@ def main():
                             CIDs[i] = []
                             source_links[i] = []
                             source_filenames[i] = []
-                            SMEs[i] = []
+                            best_SMEs[i] = []
                             confidences[i] = 0
-                        new_thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i, lock, stop_flag))
+                        new_thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, stop_flag))
                         new_thread.start()
                         threads.append(new_thread)
 
-                # Clean confidences for display on page
-                confidences = utils.clean_confidences(confidences)
-
-                # # Create a markdown table
-                # markdown_table = "| Question | Answer | Confidence |\n| --- | --- | --- |\n|" 
-                # for i in range(len(CIDs)):
-                #     markdown_table += "{0} | {1} | {2} |\n|".format(questions[i], answers[i], confidences[i]) 
-                # sources_slot.write(markdown_table, unsafe_allow_html=True)
-                
-                sources_slot.write(df)
                 #  Download file for multiple questions answers
                 st.markdown("### Download")
 
+                source_links = list(filter(None,source_links))
+                source_filenames = list(filter(None,source_filenames))
+                print(source_links)
+                print(source_filenames)
+
                 # Format for excel
-                df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
+                df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
                 sources_slot.write(df)
-        
 
                 # Copy button for only question, answer columns
                 copy_qa_button = Button(label="Copy Questions, Answers only")
@@ -218,7 +211,7 @@ def main():
                 col1, col2 = st.columns(2)
                 with col1:
                     st.bokeh_chart(copy_qa_button)
-                    st.download_button(label='Download Excel', data=file.getvalue(), file_name="text_2.xlsx")
+                    st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
 
                 with col2:
                     st.bokeh_chart(copy_all_button)

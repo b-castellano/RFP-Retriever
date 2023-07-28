@@ -42,9 +42,13 @@ def parse_sme_name(sme):
         fullname = name_list[1] + ' ' + name_list[0]
     return fullname
 
-# Remove duplicate docs? --> (Who ever made the function give context)
+# Remove duplicate itmes in lists --> Disabled
 def remove_duplicates(original, arr1, arr2=[], arr3=[]):
     index_dict = {}
+    if type(arr1) == str:
+        arr1 = [arr1]
+        arr2 = [arr2]
+        arr3 = [arr3]
 
     # Find indexes of duplicates in original array
     for i, x in enumerate(original):
@@ -138,10 +142,10 @@ def getMostRecentDate(x, y):
         return date_y
     
 # Clean confidences scores for display
-def clean_confidences(confidences):
-    for i in range(len(confidences)):
-        x = confidences[i].find("** ")
-        confidences[i] = confidences[i][x+3:]
+def clean_confidences(confidences): # Fix this? --> Need to convert confidences to strings somewhere
+    #for i in range(len(confidences)):
+    #    x = confidences[i].find("** ")
+    #    confidences[i] = confidences[i][x+3:]
     return confidences
                     
 #def read_questions_v2(file):
