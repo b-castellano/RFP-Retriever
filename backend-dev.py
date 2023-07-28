@@ -134,7 +134,10 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
-    prefix = """Assistant is a large language model designed to answer questions for an Information Security enterprise professionally. Provided is  some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
+    prefix = """Assistant is a large language model designed to answer questions for an Information Security enterprise professionally. 
+    Provided is some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. 
+    Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
+    
     context = ""
     scores = {}
     alts = []
