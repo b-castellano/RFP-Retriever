@@ -9,6 +9,7 @@ from haystack.pipelines import FAQPipeline
 from langchain.prompts import PromptTemplate
 import utils
 
+from func_timeout import func_timeout, FunctionTimedOut
 from response import Response
 
 def init():
@@ -88,12 +89,13 @@ def write_docs(document_store, retriever):
     print("docs embedded:", document_store.get_embedding_count())
 
 # Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i):
+def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock):
+    print(f"Running question {i + 1}")
     question = questions[i]
     response = Response()
 
     # Get relavent response for question
-    response = get_response(pipe, question)
+    response = get_response(pipe, question, lock)
 
     # Check if source links and source filenames are not lists
     source_links_i = response.source_links
@@ -103,24 +105,33 @@ def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames
     if type(source_filenames_i) == str and source_filenames_i != None:
         source_filenames_i = [source_filenames_i]
 
+    # source_links_i = list(filter(None, source_links_i))
+    if source_links_i is None:
+        source_links_i = [["N/A"]]
+    # source_filenames_i = list(filter(None, source_filenames_i))
+    if source_filenames_i is None:
+        source_filenames_i = [["N/A"]]
+
     # Filter out None entries in lists
     #source_links_i = list(filter(None, source_links_i))
     #source_filenames_i = list(filter(None, source_filenames_i))
 
     # Feed prompt into gpt, store query & output in session state for threads
+    lock.acquire()
     answers[i] = response.answer
     CIDs[i] = response.cids
     source_links[i] = source_links_i
     source_filenames[i] = source_filenames_i
     best_SMEs[i] = response.best_sme
     confidences[i] = response.conf
+    lock.release()
 
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
 
 # Get response for query
-def get_response(pipe, query):
+def get_response(pipe, query, lock):
+    lock.acquire()
 
-    # Query databse and check if confidence is above 95%
     prediction, closeMatch = query_faiss(query, pipe)
     response = Response()
 
@@ -134,6 +145,7 @@ def get_response(pipe, query):
         response.source_filenames = [prediction.meta["file name"]]
         response.smes = [prediction.meta["sme"]]
         response.best_sme = prediction.meta["sme"]
+        lock.release()
         
         return response
 
@@ -141,7 +153,16 @@ def get_response(pipe, query):
     else:
     
         messages, docs = create_prompt(query, prediction)
-        answer, ids = call_gpt(messages)
+        lock.release()
+        try:
+            answer, ids = func_timeout(15, call_gpt,args=(messages))
+        except:
+            print("Restarting GPT call")
+            lock.release()
+            get_response(pipe, query, lock)
+
+        conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
+        conf = f"{round(conf,2)}%"
 
         response = get_info(prediction, docs, ids)
         response.answer = simplify_answer(query, answer)
