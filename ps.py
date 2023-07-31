@@ -9,6 +9,8 @@ from haystack.pipelines import FAQPipeline
 from langchain.prompts import PromptTemplate
 import utils
 
+from response import Response
+
 def init():
     # Initialize document store
     document_store, loaded = init_store()
@@ -86,56 +88,71 @@ def write_docs(document_store, retriever):
     print("docs embedded:", document_store.get_embedding_count())
 
 # Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, SMEs, confidences, i):
+def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i):
     question = questions[i]
+    response = Response()
 
-    output, conf, CIDs_i, source_links_i, source_filenames_i, SMEs_i, best_sme = get_response(pipe, question)
-    CIDs_i, source_links_i, source_filenames_i, SMEs_i = utils.remove_duplicates(CIDs_i, source_links_i, source_filenames_i, SMEs_i)
-    
-    # Feed prompt into gpt, store query & output in session state
-    answers[i] = output
-    CIDs[i] = CIDs_i
+    # Get relavent response for question
+    response = get_response(pipe, question)
+
+    # Check if source links and source filenames are not lists
+    source_links_i = response.source_links
+    source_filenames_i = response.source_filenames
+    if type(source_links_i) == str:
+       source_links_i = [source_links_i]
+    if type(source_filenames_i) == str and source_filenames_i != None:
+        source_filenames_i = [source_filenames_i]
+
+    # Filter out None entries in lists
+    #source_links_i = list(filter(None, source_links_i))
+    #source_filenames_i = list(filter(None, source_filenames_i))
+
+    # Feed prompt into gpt, store query & output in session state for threads
+    answers[i] = response.answer
+    CIDs[i] = response.cids
     source_links[i] = source_links_i
     source_filenames[i] = source_filenames_i
-    SMEs[i] = SMEs_i
-    confidences[i] = conf
+    best_SMEs[i] = response.best_sme
+    confidences[i] = response.conf
 
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
 
 # Get response for query
 def get_response(pipe, query):
-    prediction, closeMatch = query_faiss(query, pipe)
 
-    # If a close match was found, just return that answer --> Clean up?
+    # Query databse and check if confidence is above 95%
+    prediction, closeMatch = query_faiss(query, pipe)
+    response = Response()
+
+    # If a close match was found, just return that answer
     if closeMatch:
         answer = prediction.meta["answer"].split(",")
-        answer = re.sub("[\[\]'\"]","", answer[0])
-        conf = prediction.score * 100
-        cid = prediction.meta["cid"]
-        source_link = prediction.meta["url"]
-        source_filename = prediction.meta["file name"]
-        sme = prediction.meta["sme"]
-        best_sme = prediction.meta["sme"]
+        response.answer = simplify_answer(query, re.sub("[\[\]'\"]","", answer[0]))
+        response.conf = f"{round((prediction.score * 100),2)}%"
+        response.cids = [prediction.meta["cid"]]
+        response.source_links = [prediction.meta["url"]]
+        response.source_filenames = [prediction.meta["file name"]]
+        response.smes = [prediction.meta["sme"]]
+        response.best_sme = prediction.meta["sme"]
         
-        return answer, conf, cid, source_link, source_filename, sme, best_sme
+        return response
 
     # No close match, so generate prompt from related docs
     else:
     
         messages, docs = create_prompt(query, prediction)
-        answer, ids = call_gpt(messages, docs)
+        answer, ids = call_gpt(messages)
 
-        conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
-
-        # If confidence is under 75%, output it cannot answer question
+        response = get_info(prediction, docs, ids)
+        response.answer = simplify_answer(query, answer)
+        
+        # If confidence is under 75%, output it cannot answer question --> Disabled for debug purposes
         #if conf < 75:
         #    answer = "Sorry, I cannot answer that question.\nHere are some possible sources to reference:"
 
-        return answer, conf, CIDs, source_links, source_filenames, SMEs, best_sme
+        return response
 
 
-
-        
 # Get top k documents related to query from vector datastore
 def query_faiss(query, pipe):
     docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
@@ -149,22 +166,25 @@ def query_faiss(query, pipe):
         return docs, False
         
 # Create prompt template
-def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No", "Elaborate", etc. for answer preferences
+def create_prompt(query, prediction):
+
     print("Creating prompt")
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
-    prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers within the context to answer the original question in a concise manner with explanation. Just at the end, list the question IDs of the answers you referenced to formulate your response."""
+    # prefix = """You are an assistant for the Information Security department of an enterprise designed to answer security questions professionally. 
+    # Provided is the original question and some context consisting of a sequence of answers in the form of 'question ID, answer'. Use the answers 
+    # within the context to answer the original question in a concise manner. If the question can be answered with yes or no, then do so. Just at the end, 
+    # list the question IDs of the answers you referenced to formulate your response."""
     
-    # Create context
+    prefix = """Assistant is a large language model designed by the Security Sages to answer questions for an Information Security enterprise professionally. 
+    Provided is some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. 
+    Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
+
     context = ""
-
-    # Used to get scores of prompts later on
-    docs = {}
-
+    docs = {} # Used to get scores of prompts later on
     for answer in prediction["answers"]:
-
         newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
 
         # Remove docs 
@@ -181,7 +201,17 @@ def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No",
         {"role": "user", "content": "Is company information backed up regularly?"},
         {"role": "assistant", "content": 
         """
-        Yes. (CID10491, CID94823)
+        Yes. (CID46487)
+        """},
+        {"role": "user", "content": "Is your Business Continuity Management program certified under any frameworks?"},
+        {"role": "assistant", "content": 
+        """
+        No. (CID46888)
+        """},
+        {"role": "user", "content": "Does your company provide Information Security Training?"},
+        {"role": "assistant", "content": 
+        """
+        Yes. (CID46476)
         """},
         {"role": "user", "content": "How are offsite backup processes managed to protect against ransomware?"},
         {"role": "assistant", "content": 
@@ -196,16 +226,21 @@ def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No",
         the point of detection. (CID83724, CID53133, CID00947)
         """
         },
+        {"role": "user", "content": "For Live and Work Well, what Cloud Service Providers does your solution support?"},
+        {"role": "assistant", "content": 
+        """
+        For externally hosted applications, MS Azure is a preferred Cloud Service Provider for Optum Behavioral Health. (CID55595)
+        """
+        },
         {"role": "user", "content": query},
     ]
 
     return messages, docs
     
 # Call openai API and compute confidence
-def call_gpt(messages, docs):
+def call_gpt(messages):
 
     deployment_id = "deployment-ae1a29d047eb4619a2b64fb755ae468f"
-
     response = openai.ChatCompletion.create(
         engine=deployment_id,
         messages=messages,
@@ -216,12 +251,12 @@ def call_gpt(messages, docs):
         frequency_penalty=0.0,
         presence_penalty=0.0
     )
-
     output = response['choices'][0]['message']['content']
 
     # Extract CIDs from gpt output
     ids = re.findall("CID\d+", output)
 
+    # Clean up CIDs
     ids = list(set(ids))
     output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
 
@@ -233,36 +268,70 @@ def call_gpt(messages, docs):
 
 # Gets additional data for output
 def get_info(prediction, docs, ids):
-
-    CIDs = []
-    SMEs = []
-    source_filenames = []
-    source_links = []
+    response = Response()
+    CIDs, SMEs, source_filenames, source_links = [], [], [], []
     docs_used = {}
-    
+
     if ids == None: # If gpt did not find ids
+
+        # Get relavent information for each document
         for answer in prediction["answers"]:
             CIDs.append(answer.meta["cid"])
             source_links.append(answer.meta["url"])
             SMEs.append(answer.meta["sme"])
             source_filenames.append(answer.meta["file name"])
             docs_used[answer.meta["cid"]] = answer
-
         best_sme = prediction["answers"][0].meta["sme"]
-    else:
 
+        # Remove duplicates
+        CIDs = list(set(CIDs))
+        source_links = list(set(source_links))
+        SMEs = list(set(SMEs))
+        source_filenames = list(set(source_filenames))
+        
+    else:
+        ids = list(set(ids)) ## Remove duplicates in found ids
         best_score = 0
-        for id in ids:  # If gpt found ids
+        for id in ids:  ## If gpt found ids
             
+            # Get relavent data for returned ids
             CIDs.append(docs[id].meta["cid"])
             source_links.append(docs[id].meta["url"])
             SMEs.append(docs[id].meta["sme"])
             source_filenames.append(docs[id].meta["file name"])
             docs_used[docs[id].meta["cid"]] = docs[id]
-        
+
+            # Find sme with highest confidence document
             if best_score < docs_used[id].score:
                 best_sme = docs_used[id].meta["sme"]
 
+    # Get average confidence score for used documents
     conf = utils.compute_average_score(docs_used)
+    conf = f"{round(conf,2)}%"
+    
+    # Populate response object with info
+    response.conf = conf
+    response.best_sme = best_sme
+    response.cids = CIDs
+    response.source_links = source_links
+    response.smes = SMEs
+    response.source_filenames = source_filenames
 
-    return conf, CIDs, source_links, source_filenames, SMEs, best_sme
+    return response
+
+    # Searches answer for yes or no response and outputs that for simplified answer
+def simplify_answer(query, answer):
+    query = query.strip()
+    answer = answer.strip()
+
+    if (query[len(query) -1] != "?"):
+        return answer
+
+    else:
+        firstWord = answer.split(" ")[0]
+        if re.search(r"([Yy]es)", firstWord) is not None:
+            return "Yes."
+        elif re.search(r"([Nn]o)", firstWord) is not None:
+            return "No."
+        else:
+            return answer
