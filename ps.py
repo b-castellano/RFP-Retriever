@@ -9,6 +9,8 @@ from haystack.pipelines import FAQPipeline
 from langchain.prompts import PromptTemplate
 import utils
 
+from func_timeout import func_timeout, FunctionTimedOut
+
 def init():
     # Initialize document store
     document_store, loaded = init_store()
@@ -128,12 +130,17 @@ def get_response(pipe, query, lock):
         cid = prediction.meta["cid"]
         cid = [cid]
         source_link = prediction.meta["url"]
+        if source_link == "":
+            source_link = "N/A"
         source_link = [source_link]
         source_filename = prediction.meta["file name"]
+        if source_filename == "":
+            source_filename = "N/A"
         source_filename = [source_filename]
         sme = prediction.meta["sme"]
         sme = [sme]
         best_sme = prediction.meta["sme"]
+        lock.release()
         
         return answer, conf, cid, source_link, source_filename, sme, best_sme
 
@@ -142,7 +149,11 @@ def get_response(pipe, query, lock):
     
         messages, docs = create_prompt(query, prediction)
         lock.release()
-        answer, ids = call_gpt(messages, docs)
+        try:
+            answer, ids = func_timeout(15, call_gpt,args=(messages, docs))
+        except:
+            print("Restarting GPT call")
+            get_response(pipe, query, lock)
 
         conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
         conf = f"{round(conf,2)}%"
@@ -263,8 +274,8 @@ def get_info(prediction, docs, ids):
 
     CIDs = []
     SMEs = []
-    source_filenames = []
-    source_links = []
+    source_filenames = ["N/A"]
+    source_links = ["N/A"]
     docs_used = {}
 
     

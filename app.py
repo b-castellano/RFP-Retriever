@@ -161,21 +161,9 @@ def main():
                     # thread.start()
                     # threads.append(thread)
 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
                     for i, question in enumerate(questions):
                         threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
-                    for thread in threads:
-                        try:
-                            print(thread.result(timeout=10))
-                        except concurrent.futures.TimeoutError:
-                            print("this took too long...")
-                            thread.interrupt()
-
-                        print(f"ThreadPoolExecutor threads: {len(executor._threads)}")
-
-                    while len(executor._threads) > 0:
-                        print(f"ThreadPoolExecutor threads: {len(executor._threads)}")
-
 
                 # Wait for threads, timeout threads if they take too long
                 # for thread in threads:
@@ -208,6 +196,12 @@ def main():
                 print(source_filenames)
 
                 # Format for excel
+                print(f"questions: {len(questions)}")
+                print(f"answers: {len(answers)}")
+                print(f"confidences: {len(confidences)}")
+                print(f"best_SMEs: {len(best_SMEs)}")
+                print(f"source_links: {len(source_links)}")
+                print(f"source_filenames: {len(source_filenames)}")
                 df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
                 sources_slot.write(df)
 
