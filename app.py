@@ -64,7 +64,7 @@ def main():
             elif errCode ==2:
                 st.error("File type not supported. Please upload a CSV or Excel file.")
             else:
-                questions = questions[:50]  
+                questions = questions[:500]  
 
     # Prompt options --> May remove
     # options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
@@ -161,7 +161,7 @@ def main():
                     # thread.start()
                     # threads.append(thread)
 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                     for i, question in enumerate(questions):
                         threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
 
@@ -190,10 +190,8 @@ def main():
                 #  Download file for multiple questions answers
                 st.markdown("### Download")
 
-                source_links = list(filter(None,source_links))
-                source_filenames = list(filter(None,source_filenames))
-                print(source_links)
-                print(source_filenames)
+                # source_links = list(filter(None,source_links))
+                # source_filenames = list(filter(None,source_filenames))
 
                 # Format for excel
                 print(f"questions: {len(questions)}")

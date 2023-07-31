@@ -101,8 +101,12 @@ def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames
     if type(source_filenames_i) == str and source_filenames_i != None:
         source_filenames_i = [source_filenames_i]
 
-    source_links_i = list(filter(None, source_links_i))
-    source_filenames_i = list(filter(None, source_filenames_i))
+    # source_links_i = list(filter(None, source_links_i))
+    if source_links_i is None:
+        source_links_i = [["N/A"]]
+    # source_filenames_i = list(filter(None, source_filenames_i))
+    if source_filenames_i is None:
+        source_filenames_i = [["N/A"]]
 
     # Feed prompt into gpt, store query & output in session state
     answers[i] = output
@@ -130,12 +134,8 @@ def get_response(pipe, query, lock):
         cid = prediction.meta["cid"]
         cid = [cid]
         source_link = prediction.meta["url"]
-        if source_link == "":
-            source_link = "N/A"
         source_link = [source_link]
         source_filename = prediction.meta["file name"]
-        if source_filename == "":
-            source_filename = "N/A"
         source_filename = [source_filename]
         sme = prediction.meta["sme"]
         sme = [sme]
@@ -153,6 +153,7 @@ def get_response(pipe, query, lock):
             answer, ids = func_timeout(15, call_gpt,args=(messages, docs))
         except:
             print("Restarting GPT call")
+            lock.release()
             get_response(pipe, query, lock)
 
         conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
@@ -274,8 +275,8 @@ def get_info(prediction, docs, ids):
 
     CIDs = []
     SMEs = []
-    source_filenames = ["N/A"]
-    source_links = ["N/A"]
+    source_filenames = []
+    source_links = []
     docs_used = {}
 
     
