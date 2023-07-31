@@ -4,8 +4,6 @@ import traceback
 import re
 import json
 
-from data_load import *
-
 import openai
 
 from haystack.nodes import EmbeddingRetriever
@@ -20,7 +18,7 @@ from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
 
 def init():
-     # Initialize document store
+    # Initialize document store
     document_store, loaded = init_store()
 
     # Initialize retriever
@@ -60,6 +58,7 @@ def init_retriever(document_store):
 def init_pipe(retriever):
     return FAQPipeline(retriever=retriever)
 
+# Initialize gpt configurations
 def init_gpt():
 
     with open('gpt-config.json') as user_file:
@@ -99,29 +98,33 @@ def get_response(pipe, query):
     
     prediction, closeMatch = query_faiss(query, pipe)
 
-    # If a close match was found, just return that answer
+    # If a close match was found (direct RFPIO document), just output that answer
     if closeMatch:
         newAnswer = re.sub("[\[\]'\"]","",prediction.meta["answer"])
         score = prediction.score * 100
         source = prediction.meta["cid"]
         
         return f"{newAnswer}\nConfidence Score: {score:.2f}%\nSources: \n{source}"
-     
-    # Generate prompt from related docs
-    prompt,scores, alts = create_prompt(query, prediction)
 
-    # Feed prompt into gpt
-    return call_gpt(prompt, scores, alts)
+    # No close match, so generate prompt from related docs (call GPT)
+    else:
+        prompt,scores, alts = create_prompt(query, prediction)
 
+        # Feed prompt into gpt
+        return call_gpt(prompt, scores, alts)
+
+# Get top k documents related to query from vector datastore
 def query_faiss(query, pipe):
     docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
 
-    # If there is a close match between user question and pulled doc, then just return that doc's answer
+    # If there is a close match (>=95% confidence) between user question and pulled doc, then just return that doc's answer
     print(docs["documents"])
-    if docs["documents"][0].score > .95:
+    if docs["documents"][0].score >= .95:
         return docs["documents"][0], True
-        
-    return docs, False
+    
+    # No close match
+    else:
+        return docs, False
 
 
 # Create prompt template
@@ -131,7 +134,10 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
-    prefix = """Assistant is a large language model designed to answer questions for an Information Security enterprise professionally. Provided is  some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
+    prefix = """Assistant is a large language model designed to answer questions for an Information Security enterprise professionally. 
+    Provided is some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. 
+    Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
+    
     context = ""
     scores = {}
     alts = []
@@ -154,10 +160,10 @@ def create_prompt(query, prediction):
             alts.append(answer.meta["cid"])
             count+=1
 
-    input_prompt = prompt.format(prefix=prefix, question=query, context=context)
+    system_prompt = prompt.format(prefix=prefix, question=query, context=context)
 
     messages=[
-        {"role": "system", "content": input_prompt},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": "Is company information backed up regularly?"},
         {"role": "assistant", "content": 
         """
@@ -199,20 +205,21 @@ def call_gpt(messages,scores,alts):
     
     output = response['choices'][0]['message']['content']
 
+    # Extract CIDs from gpt output
     ids = re.findall("CID\d+", output)
+
     ids = list(set(ids))
     output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
 
 
     # Handle case where gpt doesn't output sources in prompt
     if ids is None or len(ids) == 0:
-        alternates = ""
+        alternateSources = ""
         for i in alts:
-            alternates += f"{i.strip()}\n"
-        return f"{output}\nHere are some possible sources to reference:\n{alternates}"
+            alternateSources += f"{i.strip()}\n"
+        return f"{output}\nHere are some possible sources to reference:\n{alternateSources}"
 
     confidence = compute_average(ids,scores)
-    output = output[ 0 : output.rindex(".") + 1]
 
     # If confidence is under 75%, output it cannot answer question
     if confidence < 75:
