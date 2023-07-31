@@ -20,6 +20,8 @@ import ps
 import streamlit as st
 from streamlit_extras.add_vertical_space import add_vertical_space
 
+import concurrent.futures
+
 # Warning filter
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -155,32 +157,47 @@ def main():
                         confidences.append(0)
 
                     # Start a new thread for each question
-                    thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i))
-                    thread.start()
-                    threads.append(thread)
-                    thread.join()
+                    # thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
+                    # thread.start()
+                    # threads.append(thread)
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                    for i, question in enumerate(questions):
+                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
+                    for thread in threads:
+                        try:
+                            print(thread.result(timeout=10))
+                        except concurrent.futures.TimeoutError:
+                            print("this took too long...")
+                            thread.interrupt()
+
+                        print(f"ThreadPoolExecutor threads: {len(executor._threads)}")
+
+                    while len(executor._threads) > 0:
+                        print(f"ThreadPoolExecutor threads: {len(executor._threads)}")
+
 
                 # Wait for threads, timeout threads if they take too long
-                for thread in threads:
-                    thread.join(timeout=18)
+                # for thread in threads:
+                #     thread.join(timeout=18)
 
-                    if thread.is_alive():
+                #     if thread.is_alive():
 
-                        # Set stop flag to signal thread to stop gracefully
-                        stop_flag = True
-                        thread.join()
+                #         # Set stop flag to signal thread to stop gracefully
+                #         stop_flag = True
+                #         thread.join()
 
-                        # Start a new thread to replace the stopped thread
-                        with lock:
-                            answers[i] = ""
-                            CIDs[i] = []
-                            source_links[i] = []
-                            source_filenames[i] = []
-                            best_SMEs[i] = []
-                            confidences[i] = 0
-                        new_thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, stop_flag))
-                        new_thread.start()
-                        threads.append(new_thread)
+                #         # Start a new thread to replace the stopped thread
+                #         with lock:
+                #             answers[i] = ""
+                #             CIDs[i] = []
+                #             source_links[i] = []
+                #             source_filenames[i] = []
+                #             best_SMEs[i] = []
+                #             confidences[i] = 0
+                #         new_thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, stop_flag))
+                #         new_thread.start()
+                #         threads.append(new_thread)
 
                 #  Download file for multiple questions answers
                 st.markdown("### Download")

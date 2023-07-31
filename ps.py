@@ -86,11 +86,13 @@ def write_docs(document_store, retriever):
     print("docs embedded:", document_store.get_embedding_count())
 
 # Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i):
+def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock):
+    print(f"Running question {i + 1}")
     question = questions[i]
 
-    
-    output, conf, CIDs_i, source_links_i, source_filenames_i, SMEs, best_sme = get_response(pipe, question)
+    output, conf, CIDs_i, source_links_i, source_filenames_i, SMEs, best_sme = get_response(pipe, question, lock)
+
+    print(f"Got output for question {i + 1}")
     # CIDs_i, source_links_i, source_filenames_i, SMEs_i = utils.remove_duplicates(CIDs_i, source_links_i, source_filenames_i, SMEs_i)
     if type(source_links_i) == str:
        source_links_i = [source_links_i]
@@ -102,16 +104,19 @@ def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames
 
     # Feed prompt into gpt, store query & output in session state
     answers[i] = output
+    lock.acquire()
     CIDs[i] = CIDs_i
     source_links[i] = source_links_i
     source_filenames[i] = source_filenames_i
     best_SMEs[i] = best_sme
     confidences[i] = conf
+    lock.release()
 
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
 
 # Get response for query
-def get_response(pipe, query):
+def get_response(pipe, query, lock):
+    lock.acquire()
     prediction, closeMatch = query_faiss(query, pipe)
 
     # If a close match was found, just return that answer --> Clean up?
@@ -136,6 +141,7 @@ def get_response(pipe, query):
     else:
     
         messages, docs = create_prompt(query, prediction)
+        lock.release()
         answer, ids = call_gpt(messages, docs)
 
         conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
