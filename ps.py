@@ -9,6 +9,7 @@ from haystack.pipelines import FAQPipeline
 from langchain.prompts import PromptTemplate
 import utils
 
+from func_timeout import func_timeout, FunctionTimedOut
 from response import Response
 
 def init():
@@ -88,52 +89,74 @@ def write_docs(document_store, retriever):
     print("docs embedded:", document_store.get_embedding_count())
 
 # Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i):
+def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock):
+    print(f"Running question {i + 1}")
     question = questions[i]
     response = Response()
 
+    #print("Preprocessing Info:\n")
+    #print(f"Questions: {questions}\n Answers: {answers}\n CIDs: {CIDs}\n Source Links: {source_links}\n Source Filenames: {source_filenames}\n Best SME: {best_SMEs} Confidences: {confidences}\n")
+
     # Get relavent response for question
-    response = get_response(pipe, question)
+    response = get_response(pipe, question, lock)
+
+    # print("Post processing:\n")
+    # print(f"{response}\n")
+    # print(f"Questions: {questions}\n Answers: {response.answer}\n CIDs: {response.cids}\n Source Links: {response.source_links}\n Source Filenames: {response.source_filenames}\n Best SME: {response.best_sme} Confidences: {response.conf}\n")
+
 
     # Check if source links and source filenames are not lists
     source_links_i = response.source_links
     source_filenames_i = response.source_filenames
-    if type(source_links_i) == str:
-       source_links_i = [source_links_i]
-    if type(source_filenames_i) == str and source_filenames_i != None:
-        source_filenames_i = [source_filenames_i]
+    #if type(source_links_i) == str:
+    #   source_links_i = [source_links_i]
+    #if type(source_filenames_i) == str and source_filenames_i != None:
+    #    source_filenames_i = [source_filenames_i]
 
-    # Filter out None entries in lists
-    #source_links_i = list(filter(None, source_links_i))
-    #source_filenames_i = list(filter(None, source_filenames_i))
+    # print("Post string pocessing DISABLED:")
+    # print(f"Source Links i: {source_links_i}\n Source Filenames i: {source_filenames_i}\n")
+
+    # Remove empty strings in lists
+    source_links_i = list(filter(lambda x: x != '', source_links_i))
+    if source_links_i is None:
+        source_links_i = [["N/A"]]
+    source_filenames_i = list(filter(lambda x: x != '', source_filenames_i))
+    if source_filenames_i is None:
+        source_filenames_i = [["N/A"]]
+
+    # print("Post None Check")
+    # print(f"Source Links i: {source_links_i}\n Source Filenames i: {source_filenames_i}\n")
 
     # Feed prompt into gpt, store query & output in session state for threads
+    lock.acquire()
     answers[i] = response.answer
     CIDs[i] = response.cids
     source_links[i] = source_links_i
     source_filenames[i] = source_filenames_i
     best_SMEs[i] = response.best_sme
     confidences[i] = response.conf
+    lock.release()
 
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
 
 # Get response for query
-def get_response(pipe, query):
+def get_response(pipe, query, lock=threading.Lock()):
+    lock.acquire()
 
-    # Query databse and check if confidence is above 95%
     prediction, closeMatch = query_faiss(query, pipe)
     response = Response()
 
     # If a close match was found, just return that answer
     if closeMatch:
         answer = prediction.meta["answer"].split(",")
-        response.answer = simplify_answer(query, re.sub("[\[\]'\"]","", answer[0]))
+        response.answer = simplify_answer(query, re.sub("[\[\]'\"]", "", answer[0]))
         response.conf = f"{round((prediction.score * 100),2)}%"
         response.cids = [prediction.meta["cid"]]
         response.source_links = [prediction.meta["url"]]
         response.source_filenames = [prediction.meta["file name"]]
         response.smes = [prediction.meta["sme"]]
         response.best_sme = prediction.meta["sme"]
+        lock.release()
         
         return response
 
@@ -141,7 +164,13 @@ def get_response(pipe, query):
     else:
     
         messages, docs = create_prompt(query, prediction)
-        answer, ids = call_gpt(messages)
+        lock.release()
+        try:
+            foo = "foo"
+            answer, ids = func_timeout(20, call_gpt, args=(messages, foo))
+        except FunctionTimedOut:
+            print("Restarting GPT call")
+            return get_response(pipe, query, lock)
 
         response = get_info(prediction, docs, ids)
         response.answer = simplify_answer(query, answer)
@@ -238,7 +267,7 @@ def create_prompt(query, prediction):
     return messages, docs
     
 # Call openai API and compute confidence
-def call_gpt(messages):
+def call_gpt(messages, foo):
 
     deployment_id = "deployment-ae1a29d047eb4619a2b64fb755ae468f"
     response = openai.ChatCompletion.create(

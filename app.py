@@ -23,6 +23,8 @@ from response import Response
 import streamlit as st
 from streamlit_extras.add_vertical_space import add_vertical_space
 
+import concurrent.futures
+
 # Warning filter
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -160,43 +162,54 @@ def main():
                         confidences.append(0)
 
                     # Start a new thread for each question
-                    thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i))
-                    thread.start()
-                    threads.append(thread)
-                    thread.join()
+                    # thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
+                    # thread.start()
+                    # threads.append(thread)
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                    for i, question in enumerate(questions):
+                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
 
                 # Wait for threads, timeout threads if they take too long
-                for thread in threads:
-                    thread.join(timeout=18)
+                # for thread in threads:
+                #     thread.join(timeout=18)
 
-                    if thread.is_alive():
+                #     if thread.is_alive():
 
-                        # Set stop flag to signal thread to stop gracefully
-                        stop_flag = True
-                        thread.join()
+                #         # Set stop flag to signal thread to stop gracefully
+                #         stop_flag = True
+                #         thread.join()
 
-                        # Start a new thread to replace the stopped thread
-                        with lock:
-                            answers[i] = ""
-                            CIDs[i] = []
-                            source_links[i] = []
-                            source_filenames[i] = []
-                            best_SMEs[i] = []
-                            confidences[i] = 0
-                        new_thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i))
-                        new_thread.start()
-                        threads.append(new_thread)
+                #         # Start a new thread to replace the stopped thread
+                #         with lock:
+                #             answers[i] = ""
+                #             CIDs[i] = []
+                #             source_links[i] = []
+                #             source_filenames[i] = []
+                #             best_SMEs[i] = []
+                #             confidences[i] = 0
+                #         new_thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, stop_flag))
+                #         new_thread.start()
+                #         threads.append(new_thread)
 
                 #  Download file for multiple questions answers
                 st.markdown("### Download")
 
-                # Clean empty spaces in lists
-                source_links = list(filter(None,source_links))
-                source_filenames = list(filter(None,source_filenames))
+                # Format for excel
+                # print(f"questions: {len(questions)}")
+                # print(f"answers: {len(answers)}")
+                # print(f"confidences: {len(confidences)}")
+                # print(f"best_SMEs: {len(best_SMEs)}")
+                # print(f"source_links: {len(source_links)}")
+                # print(f"source_filenames: {len(source_filenames)}")
+                # print(f"questions: {questions}")
+                # print(f"answers: {answers}")
+                # print(f"confidences: {confidences}")
+                # print(f"best_SMEs: {best_SMEs}")
+                # print(f"source_links: {source_links}")
+                # print(f"source_filenames: {source_filenames}")
 
                 # Format for excel
-                print(len(questions), len(answers), len(confidences), len(best_SMEs), len(source_links), len(source_filenames))
-                print(questions, answers, confidences, best_SMEs, source_links, source_filenames)
                 a = {'Question' : questions ,'Answer' : answers , 'Confidence': confidences , 'SMEs': best_SMEs, 'Source Links': source_links, 'Souce Filenames': source_filenames}
                 df = pd.DataFrame.from_dict(a, orient='index')
                 df = df.transpose()
