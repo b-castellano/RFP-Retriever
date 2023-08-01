@@ -148,8 +148,8 @@ def main():
             elif len(questions) > 1: # Multiple questions case
                 print(f"\n\nQuestion length is: {len(questions)}\n\n")
 
-                # Initialize empty lists for answers, CIDs, source_links, SMEs, and confidences
-                answers, CIDs, source_links, best_SMEs, confidences = [], [], [], [], []
+                # Initialize empty lists for answers, cids, source_links, SMEs, and confidences
+                answers, cids, source_links, best_smes, confidences = [], [], [], [], []
 
                 # Initiate variabels for multi-threading
                 lock = threading.Lock()
@@ -159,15 +159,15 @@ def main():
                 for i, question in enumerate(questions):
                     with lock:
 
-                        # Append empty strings and lists to answers, CIDs, source_links, source_filenames, and SMEs
+                        # Append empty strings and lists to answers, cids, source_links, source_filenames, and SMEs
                         answers.append("")
-                        CIDs.append([])
+                        cids.append([])
                         source_links.append([])
-                        best_SMEs.append([])
+                        best_smes.append([])
                         confidences.append(0)
 
                     # Start a new thread for each question
-                    # thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, best_SMEs, confidences, i, lock))
+                    # thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, cids, source_linkssme, confidences, i, lock))
                     # thread.start()
                     # threads.append(thread)
                 num_complete = [0]
@@ -176,7 +176,7 @@ def main():
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                     for i, question in enumerate(questions):
-                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links,  best_SMEs, confidences, i, lock, num_complete, progress_text, progress_bar))
+                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, cids, source_links, best_smes, confidences, i, lock, num_complete, progress_text, progress_bar))
                         for thread in executor._threads:
                             add_script_run_ctx(thread)
 
@@ -190,14 +190,14 @@ def main():
                 print(f"questions: {len(questions)}")
                 print(f"answers: {len(answers)}")
                 print(f"confidences: {len(confidences)}")
-                print(f"best_SMEs: {len(best_SMEs)}")
+                print(f"sme: {len(best_smes)}")
                 print(f"source_links: {len(source_links)}")
 
                 # Format for excel
-                a = {'Question' : questions ,'Answer' : answers , 'Confidence': confidences , 'SMEs': best_SMEs, 'Source Links': source_links}
+                a = {'Question' : questions ,'Answer' : answers , 'Confidence': confidences , 'SMEs':best_smes, 'Source Links': source_links}
                 df = pd.DataFrame.from_dict(a, orient='index')
                 df = df.transpose()
-                #df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
+                #df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs"sme, "Source Links": source_links, "Souce Filenames": source_filenames})
                 sources_slot.write(df)
 
                 # Copy button for only question, answer columns

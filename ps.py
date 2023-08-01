@@ -91,7 +91,7 @@ def write_docs(document_store, retriever):
     print("docs embedded:", document_store.get_embedding_count())
 
 # Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, best_SMEs, confidences, i, lock, num_complete, progress_text, progress_bar):
+def get_responses(pipe, questions, answers, cids, source_links, best_smes, confidences, i, lock, num_complete, progress_text, progress_bar):
     print(f"Running question {i + 1}")
     question = questions[i]
     response = Response()
@@ -160,7 +160,7 @@ def get_response(pipe, query, lock=threading.Lock()):
         lock.release()
         try:
             foo = "foo"
-            answer, ids = func_timeout(15, call_gpt, args=(messages, foo))
+            answer, ids = func_timeout(10, call_gpt, args=(messages, foo))
         except FunctionTimedOut:
             print("Restarting GPT call")
             return get_response(pipe, query, lock)
