@@ -11,19 +11,23 @@ import pyperclip as pc
 import threading
 from bokeh.models.widgets import Button
 from bokeh.models import CustomJS
+# import fontawesome as fa
+
 
 # External Files
 import utils
 import ps
+from response import Response
 
 # Streamlit
 import streamlit as st
 from streamlit_extras.add_vertical_space import add_vertical_space
 
+import concurrent.futures
+
 # Warning filter
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
 
 ### Setup session storage
 st.session_state.responses = []
@@ -44,15 +48,14 @@ def main():
     # Initialize pipline
     pipe = ps.init()
 
-    # Init UI Slots
+    # Init UI Header/File Upload
     st.header("Ask a Question:")
-
     file_upload = st.checkbox("Upload questions from file")
     file_prev = st.empty()
 
     # Read questions from file uploaded and gather row data
     questions = []
-    rows = []
+    rows = [] ## Row indexes
     if file_upload:
         questions_file = st.file_uploader("Upload a CSV or Excel file (each cell a question, max 50 questions)", type=['csv', 'xlsx'])
         if questions_file is not None:
@@ -62,14 +65,9 @@ def main():
             elif errCode ==2:
                 st.error("File type not supported. Please upload a CSV or Excel file.")
             else:
-                questions = questions[:50]  
+                questions = questions[:300] ## Max amount of questions allowed 
 
-    # Prompt options --> May remove
-    # options = np.array(["Short", "Regular", "Elaborate", "Yes/No"])
-    # selected_option = st.selectbox('Desired answer type:', options=options, index=0)
-    # nda_status = st.checkbox("NDA Signed?")
-
-    # Fill in text boxes on page
+    # UI Elements
     query = st.text_input("RFP/Security-Related")
     submitted = st.button("Submit")
 
@@ -94,9 +92,12 @@ def main():
 
             if len(questions) == 1: ## Single question case
 
-                # Get response from rfp-retriever
-                output, conf, CIDs, source_links, source_filenames, SMEs, best_sme = ps.get_response(pipe, questions[0]) 
-                print(len(CIDs))
+                # Get response from rfp-retriever and assign 
+                response = ps.get_response(pipe,questions[0])
+                output = response.answer
+                CIDs = response.cids
+                best_sme = response.best_sme
+
                 # Add query and output to front end
                 st.session_state.responses.append(questions[0])
                 st.session_state.responses.append(output)
@@ -106,18 +107,24 @@ def main():
                 response_slot.write(output)  
 
                 # Copy response
-                with response_copy.expander('Copy response'):
-                    st.write("Copied response!")
-                    pc.copy(output) 
+                # with response_copy.expander('Copy response'):
+                #     st.write("Copied response!")
+                #     pc.copy(output) 
+
+                # copy_button = Button(icon=FontAwesomeIcon(icon_name="fa-clipboard"))
+                # copy_button.js_on_event("button_click", CustomJS(code="alert('It works!')"), code="""
+                #     navigator.clipboard.writeText(output);
+                #     """)
+                # copy_button.css_classes = ["streamlit-button"]
 
                 # Display confidence, sources, SMEs
-                confidence_slot.markdown(f"**Confidence Score:** {conf}")
+                confidence_slot.markdown(f"**Confidence Score:** {response.conf}")
                 sources_header.markdown(f"**Sources:**")
 
                 # Create a markdown table
                 markdown_table = "| CID | SME | File Name |\n| --- | --- | --- |\n|" 
                 for i in range(len(CIDs)):
-                    markdown_table += "[{0}]({1}) | {2} | {3} |\n|".format(CIDs[i], source_links[i], SMEs[i], source_filenames[i]) 
+                    markdown_table += "[{0}]({1}) | {2} | {3} |\n|".format(CIDs[i], response.source_links[i], response.smes[i], response.source_filenames[i]) 
                 sources_slot.write(markdown_table, unsafe_allow_html=True)
 
                 # Write most relavent SME
@@ -155,43 +162,55 @@ def main():
                         confidences.append(0)
 
                     # Start a new thread for each question
-                    thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i))
-                    thread.start()
-                    threads.append(thread)
-                    thread.join()
+                    # thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
+                    # thread.start()
+                    # threads.append(thread)
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                    for i, question in enumerate(questions):
+                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
 
                 # Wait for threads, timeout threads if they take too long
-                for thread in threads:
-                    thread.join(timeout=18)
+                # for thread in threads:
+                #     thread.join(timeout=18)
 
-                    if thread.is_alive():
+                #     if thread.is_alive():
 
-                        # Set stop flag to signal thread to stop gracefully
-                        stop_flag = True
-                        thread.join()
+                #         # Set stop flag to signal thread to stop gracefully
+                #         stop_flag = True
+                #         thread.join()
 
-                        # Start a new thread to replace the stopped thread
-                        with lock:
-                            answers[i] = ""
-                            CIDs[i] = []
-                            source_links[i] = []
-                            source_filenames[i] = []
-                            best_SMEs[i] = []
-                            confidences[i] = 0
-                        new_thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, stop_flag))
-                        new_thread.start()
-                        threads.append(new_thread)
+                #         # Start a new thread to replace the stopped thread
+                #         with lock:
+                #             answers[i] = ""
+                #             CIDs[i] = []
+                #             source_links[i] = []
+                #             source_filenames[i] = []
+                #             best_SMEs[i] = []
+                #             confidences[i] = 0
+                #         new_thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, stop_flag))
+                #         new_thread.start()
+                #         threads.append(new_thread)
 
                 #  Download file for multiple questions answers
                 st.markdown("### Download")
 
-                source_links = list(filter(None,source_links))
-                source_filenames = list(filter(None,source_filenames))
-                print(source_links)
-                print(source_filenames)
+                # source_links = list(filter(None,source_links))
+                # source_filenames = list(filter(None,source_filenames))
 
                 # Format for excel
-                df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
+                print(f"questions: {len(questions)}")
+                print(f"answers: {len(answers)}")
+                print(f"confidences: {len(confidences)}")
+                print(f"best_SMEs: {len(best_SMEs)}")
+                print(f"source_links: {len(source_links)}")
+                print(f"source_filenames: {len(source_filenames)}")
+
+                # Format for excel
+                a = {'Question' : questions ,'Answer' : answers , 'Confidence': confidences , 'SMEs': best_SMEs, 'Source Links': source_links, 'Souce Filenames': source_filenames}
+                df = pd.DataFrame.from_dict(a, orient='index')
+                df = df.transpose()
+                #df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
                 sources_slot.write(df)
 
                 # Copy button for only question, answer columns
@@ -199,6 +218,7 @@ def main():
                 df_copy = df.iloc[:, :2].to_csv(sep='\t') # Select first two columns and convert to CSV
                 copy_qa_button.js_on_event("button_click", CustomJS(args=dict(df=df_copy), code=""" navigator.clipboard.writeText(df); """))
                 copy_qa_button.css_classes = ["streamlit-button"]
+
                 # Copy button for all of df
                 copy_all_button = Button(label="Copy All")
                 copy_all_button.js_on_event("button_click", CustomJS(args=dict(df=df.to_csv(sep='\t')), code="""
@@ -212,13 +232,9 @@ def main():
                 with col1:
                     st.bokeh_chart(copy_qa_button)
                     st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
-
                 with col2:
                     st.bokeh_chart(copy_all_button)
                     st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
-
-                # st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
-                # st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
 
             else:
                 st.error("No questions detected")

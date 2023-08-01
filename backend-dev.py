@@ -100,18 +100,43 @@ def get_response(pipe, query):
 
     # If a close match was found (direct RFPIO document), just output that answer
     if closeMatch:
-        newAnswer = re.sub("[\[\]'\"]","",prediction.meta["answer"])
+        answer = simplify_answer(query, re.sub(r"[\[\]'\"]","",prediction.meta["answer"]))
+
         score = prediction.score * 100
         source = prediction.meta["cid"]
         
-        return f"{newAnswer}\nConfidence Score: {score:.2f}%\nSources: \n{source}"
+        
+        return f"{answer}\nConfidence Score: {score:.2f}%\nSources: \n{source}"
 
     # No close match, so generate prompt from related docs (call GPT)
     else:
         prompt,scores, alts = create_prompt(query, prediction)
 
         # Feed prompt into gpt
-        return call_gpt(prompt, scores, alts)
+        answer, score, sources = call_gpt(prompt, scores, alts)
+
+        answer = simplify_answer(query, answer)
+
+        return f"{answer}\nConfidence Score: {score:.2f}%\nSources: \n{sources}"
+
+
+# Searches answer for yes or no response and outputs that for simplified answer
+def simplify_answer(query, answer):
+    query = query.strip()
+    answer = answer.strip()
+
+    if (query[len(query) -1] != "?"):
+        return answer
+
+    else:
+        firstWord = answer.split(" ")[0]
+        if re.search(r"([Yy]es)", firstWord) is not None:
+            return "Yes."
+        elif re.search(r"([Nn]o)", firstWord) is not None:
+            return "No."
+        else:
+            return answer
+
 
 # Get top k documents related to query from vector datastore
 def query_faiss(query, pipe):
@@ -135,8 +160,7 @@ def create_prompt(query, prediction):
     # Provide instructions/prefix
     prefix = """Assistant is a large language model designed by the Security Sages to answer questions for an Information Security enterprise professionally. 
     Provided is some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. 
-    Use the answers within the context to answer the question in a concise manner. If possible, respond with only yes or no.
-     At the end of your response, list the question IDs of the answers you referenced."""
+    Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
 
     context = ""
     scores = {}
@@ -146,7 +170,7 @@ def create_prompt(query, prediction):
     
     for answer in prediction["answers"]:
 
-        newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
+        newAnswer = re.sub(r"[\[\]'\"]","",answer.meta["answer"])
 
         # Remove docs 
         context += "Question ID: {ID}, Answer: {answer}\n".format(
@@ -192,6 +216,12 @@ def create_prompt(query, prediction):
         the point of detection. (CID83724, CID53133, CID00947)
         """
         },
+        {"role": "user", "content": "For Live and Work Well, what Cloud Service Providers does your solution support?"},
+        {"role": "assistant", "content": 
+        """
+        For externally hosted applications, MS Azure is a preferred Cloud Service Provider for Optum Behavioral Health. (CID55595)
+        """
+        },
         {"role": "user", "content": query},
     ]
     return messages, scores, alts
@@ -216,10 +246,10 @@ def call_gpt(messages,scores,alts):
     output = response['choices'][0]['message']['content']
 
     # Extract CIDs from gpt output
-    ids = re.findall("CID\d+", output)
+    ids = re.findall(r"CID\d+", output)
 
     ids = list(set(ids))
-    output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
+    output = re.sub(r"\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
 
 
     # Handle case where gpt doesn't output sources in prompt
@@ -227,7 +257,7 @@ def call_gpt(messages,scores,alts):
         alternateSources = ""
         for i in alts:
             alternateSources += f"{i.strip()}\n"
-        return f"{output}\nHere are some possible sources to reference:\n{alternateSources}"
+        return f"{output}\nHere are some possible sources to reference:\n", 0, alternateSources
 
     confidence = compute_average(ids,scores)
 
@@ -236,15 +266,16 @@ def call_gpt(messages,scores,alts):
         alternates = ""
         for i in alts:
             alternates += f"{i.strip()}\n"
-        return f"Sorry, I cannot answer that question.\nHere are some possible sources to reference:\n{alternates}"
+        return f"Sorry, I cannot answer that question.\nHere are some possible sources to reference:\n", 0, alternates
    
-    output += f"\nConfidence Score: {confidence:.2f}%"
-    output += f"\nSources:\n"
+    score = confidence
+
+    sources = ""
 
     for i in ids:
-        output += f"{i.strip()}\n"
+        sources += f"{i.strip()}\n"
 
-    return output
+    return output, score, sources
 
 def compute_average(ids, scores):
     print(ids)
