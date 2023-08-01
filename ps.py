@@ -89,7 +89,7 @@ def write_docs(document_store, retriever):
     print("docs embedded:", document_store.get_embedding_count())
 
 # Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock):
+def get_responses(pipe, questions, answers, cids, source_links, best_smes, confidences, i, lock):
     print(f"Running question {i + 1}")
     question = questions[i]
     response = Response()
@@ -99,18 +99,15 @@ def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames
 
     # Check if source links and source filenames are not lists
     source_links_i = response.source_links
-    source_filenames_i = response.source_filenames
+
     if type(source_links_i) == str:
        source_links_i = [source_links_i]
-    if type(source_filenames_i) == str and source_filenames_i != None:
-        source_filenames_i = [source_filenames_i]
+
 
     # source_links_i = list(filter(None, source_links_i))
     if source_links_i is None:
         source_links_i = [["N/A"]]
-    # source_filenames_i = list(filter(None, source_filenames_i))
-    if source_filenames_i is None:
-        source_filenames_i = [["N/A"]]
+   
 
     # Filter out None entries in lists
     #source_links_i = list(filter(None, source_links_i))
@@ -119,10 +116,9 @@ def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames
     # Feed prompt into gpt, store query & output in session state for threads
     lock.acquire()
     answers[i] = response.answer
-    CIDs[i] = response.cids
+    cids[i] = response.cids
     source_links[i] = source_links_i
-    source_filenames[i] = source_filenames_i
-    best_SMEs[i] = response.best_sme
+    best_smes[i] = response.best_sme
     confidences[i] = response.conf
     lock.release()
 
@@ -142,7 +138,6 @@ def get_response(pipe, query, lock=threading.Lock()):
         response.conf = f"{round((prediction.score * 100),2)}%"
         response.cids = [prediction.meta["cid"]]
         response.source_links = [prediction.meta["url"]]
-        response.source_filenames = [prediction.meta["file name"]]
         response.smes = [prediction.meta["sme"]]
         response.best_sme = prediction.meta["sme"]
         lock.release()
@@ -159,7 +154,7 @@ def get_response(pipe, query, lock=threading.Lock()):
             answer, ids = func_timeout(15, call_gpt, args=(messages, foo))
         except FunctionTimedOut:
             print("Restarting GPT call")
-            get_response(pipe, query, lock)
+            return get_response(pipe, query, lock)
 
         response = get_info(prediction, docs, ids)
         response.answer = simplify_answer(query, answer)
@@ -203,7 +198,7 @@ def create_prompt(query, prediction):
     context = ""
     docs = {} # Used to get scores of prompts later on
     for answer in prediction["answers"]:
-        newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
+        newAnswer = re.sub(r"[\[\]'\"]","",answer.meta["answer"])
 
         # Remove docs 
         context += "Question ID: {ID}, Answer: {answer}\n".format(
@@ -270,13 +265,14 @@ def call_gpt(messages, foo):
         presence_penalty=0.0
     )
     output = response['choices'][0]['message']['content']
+    print(output)
 
-    # Extract CIDs from gpt output
-    ids = re.findall("CID\d+", output)
+    # Extract cids from gpt output
+    ids = re.findall(r"CID\d+", output)
 
-    # Clean up CIDs
+    # Clean up cids
     ids = list(set(ids))
-    output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
+    output = re.sub(r"\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
 
     # Handle case where gpt doesn't output sources in prompt
     if ids is None or len(ids) == 0:
@@ -287,41 +283,31 @@ def call_gpt(messages, foo):
 # Gets additional data for output
 def get_info(prediction, docs, ids):
     response = Response()
-    CIDs, SMEs, source_filenames, source_links = [], [], [], []
+    cids, smes, source_links = [], [], []
     docs_used = {}
 
     if ids == None: # If gpt did not find ids
+        ids = []
 
-        # Get relavent information for each document
+        # Use all ids
         for answer in prediction["answers"]:
-            CIDs.append(answer.meta["cid"])
-            source_links.append(answer.meta["url"])
-            SMEs.append(answer.meta["sme"])
-            source_filenames.append(answer.meta["file name"])
-            docs_used[answer.meta["cid"]] = answer
-        best_sme = prediction["answers"][0].meta["sme"]
-
-        # Remove duplicates
-        CIDs = list(set(CIDs))
-        source_links = list(set(source_links))
-        SMEs = list(set(SMEs))
-        source_filenames = list(set(source_filenames))
+            ids.append(answer.meta["cid"])
         
-    else:
-        ids = list(set(ids)) ## Remove duplicates in found ids
-        best_score = 0
-        for id in ids:  ## If gpt found ids
-            
-            # Get relavent data for returned ids
-            CIDs.append(docs[id].meta["cid"])
-            source_links.append(docs[id].meta["url"])
-            SMEs.append(docs[id].meta["sme"])
-            source_filenames.append(docs[id].meta["file name"])
-            docs_used[docs[id].meta["cid"]] = docs[id]
+    
+    ids = list(set(ids)) ## Remove duplicates in found ids
+    best_score = 0
 
-            # Find sme with highest confidence document
-            if best_score < docs_used[id].score:
-                best_sme = docs_used[id].meta["sme"]
+    for id in ids:  ## If gpt found ids
+        
+        # Get relavent data for returned ids
+        cids.append(docs[id].meta["cid"])
+        source_links.append(docs[id].meta["url"])
+        smes.append(docs[id].meta["sme"])
+        docs_used[docs[id].meta["cid"]] = docs[id]
+
+        # Find sme with highest confidence document
+        if best_score < docs_used[id].score:
+            best_sme = docs_used[id].meta["sme"]
 
     # Get average confidence score for used documents
     conf = utils.compute_average_score(docs_used)
@@ -330,10 +316,9 @@ def get_info(prediction, docs, ids):
     # Populate response object with info
     response.conf = conf
     response.best_sme = best_sme
-    response.cids = CIDs
+    response.cids = cids
     response.source_links = source_links
-    response.smes = SMEs
-    response.source_filenames = source_filenames
+    response.smes = smes
 
     return response
 
