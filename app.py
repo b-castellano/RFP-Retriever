@@ -111,11 +111,12 @@ def main():
                 #     st.write("Copied response!")
                 #     pc.copy(output) 
 
-                # copy_button = Button(icon=FontAwesomeIcon(icon_name="fa-clipboard"))
-                # copy_button.js_on_event("button_click", CustomJS(code="alert('It works!')"), code="""
-                #     navigator.clipboard.writeText(output);
-                #     """)
-                # copy_button.css_classes = ["streamlit-button"]
+                # icon_name="fa-clipboard")
+                copy_button = Button(label="Copy to Clipboard")
+                copy_button.js_on_event("button_click", CustomJS(code="alert('It works!')"), code="""
+                    navigator.clipboard.writeText(output);
+                    """)
+                copy_button.css_classes = ["streamlit-button"]
 
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(f"**Confidence Score:** {response.conf}")
