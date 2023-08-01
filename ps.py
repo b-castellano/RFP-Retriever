@@ -91,7 +91,7 @@ def write_docs(document_store, retriever):
     print("docs embedded:", document_store.get_embedding_count())
 
 # Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, num_complete):
+def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, num_complete, progress_text, progress_bar):
     print(f"Running question {i + 1}")
     question = questions[i]
     response = Response()
@@ -133,9 +133,9 @@ def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames
     num_complete.append(num_complete.pop() + 1)
     print("num_complete:", num_complete[0])
     lock.release()
-    progress_text = "Questions being answered, please wait."
-    progress_bar = st.progress((num_complete / len(questions)), text=progress_text)
-    # progress_bar.progress((num_complete / len(questions)), progress_text)
+    # progress_text = "Questions being answered, please wait."
+    # progress_bar = st.progress((num_complete[0] / len(questions)), text=progress_text)
+    progress_bar.progress((num_complete[0] / len(questions)), progress_text)
 
 # Get response for query
 def get_response(pipe, query, lock=threading.Lock()):

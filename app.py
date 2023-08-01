@@ -166,13 +166,14 @@ def main():
                     # thread.start()
                     # threads.append(thread)
                 num_complete = [0]
-                # progress_text = "Questions being answered, please wait."
-                # progress_bar = st.progress((num_complete / len(questions)), text=progress_text)
+                progress_text = "Questions being answered, please wait."
+                progress_bar = st.progress((num_complete[0] / len(questions)), text=progress_text)
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                     for i, question in enumerate(questions):
-                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, num_complete))
-
+                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, num_complete, progress_text, progress_bar))
+                        for thread in executor._threads:
+                            st.report_thread.add_report_ctx(thread)
                 # Wait for threads, timeout threads if they take too long
                 # for thread in threads:
                 #     thread.join(timeout=18)
