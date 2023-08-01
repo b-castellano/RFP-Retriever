@@ -12,7 +12,7 @@ import threading
 from bokeh.models.widgets import Button
 from bokeh.models import CustomJS
 import fontawesome as fa
-
+import concurrent.futures
 
 # External Files
 import utils
@@ -24,14 +24,9 @@ import streamlit as st
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit.runtime.scriptrunner import add_script_run_ctx
 
-import concurrent.futures
-
 # Warning filter
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-### Setup session storage
-st.session_state.responses = []
 
 # Sidebar contents
 with st.sidebar:
@@ -48,11 +43,13 @@ def main():
 
     # Initialize pipline
     pipe = ps.init()
+    
+    ### Setup session storage
+    st.session_state.responses = []
 
     # Init UI Header/File Upload
     st.header("Ask a Question:")
     file_upload = st.checkbox("Upload questions from file")
-    file_prev = st.empty()
 
     # Read questions from file uploaded and gather row data
     questions = []
@@ -145,7 +142,6 @@ def main():
 
                 # Initiate variabels for multi-threading
                 lock = threading.Lock()
-                stop_flag = False
                 threads = []
 
                 for i, question in enumerate(questions):
@@ -173,24 +169,8 @@ def main():
                 #  Download file for multiple questions answers
                 st.markdown("### Download")
 
-                # print(f"questions: {len(questions)}")
-                # print(f"answers: {len(answers)}")
-                # print(f"confidences: {len(confidences)}")
-                # print(f"best_SMEs: {len(best_SMEs)}")
-                # print(f"source_links: {len(source_links)}")
-                # print(f"source_filenames: {len(source_filenames)}")
-                # print(f"questions: {questions}")
-                # print(f"answers: {answers}")
-                # print(f"confidences: {confidences}")
-                # print(f"best_SMEs: {best_SMEs}")
-                # print(f"source_links: {source_links}")
-                # print(f"source_filenames: {source_filenames}")
-
                 # Format for excel
-                a = {'Question' : questions ,'Answer' : answers , 'Confidence': confidences , 'SMEs': best_smes, 'Source Links': source_links}
-                df = pd.DataFrame.from_dict(a, orient='index')
-                df = df.transpose()
-                #df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs"sme, "Source Links": source_links, "Souce Filenames": source_filenames})
+                df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_smes, "Source Links": source_links})
                 sources_slot.write(df)
 
                 # Copy button for only question, answer columns
