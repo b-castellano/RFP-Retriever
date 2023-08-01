@@ -62,7 +62,7 @@ def main():
         if questions_file is not None:
             questions, errCode, rows = utils.read_questions(questions_file)
             if errCode==1:
-                st.error("Emtpy file")
+                st.error("Empty file")
             elif errCode ==2:
                 st.error("File type not supported. Please upload a CSV or Excel file.")
             else:
@@ -96,7 +96,9 @@ def main():
                 # Get response from rfp-retriever and assign 
                 response = ps.get_response(pipe,questions[0])
                 output = response.answer
-                CIDs = response.cids
+                cids = response.cids
+                smes = response.smes
+                source_links = response.source_links
                 best_sme = response.best_sme
 
                 # Add query and output to front end
@@ -105,46 +107,47 @@ def main():
 
                 # Write response
                 response_header_slot.markdown(f"**Answer:**\n")
-                response_slot.write(output)  
+                response_slot.write(f"{output}")  
 
                 # Copy response
-                # with response_copy.expander('Copy response'):
+                # with response_copy.button('Copy Response'):
                 #     st.write("Copied response!")
                 #     pc.copy(output) 
 
-                # copy_button = Button(icon=FontAwesomeIcon(icon_name="fa-clipboard"))
-                # copy_button.js_on_event("button_click", CustomJS(code="alert('It works!')"), code="""
+                # icon=FontAwesomeIcon(icon_name="fa-clipboard")
+
+                # response_copy.button("button_click", CustomJS(code="""
                 #     navigator.clipboard.writeText(output);
-                #     """)
-                # copy_button.css_classes = ["streamlit-button"]
+                #     """))
+                # response_copy.css_classes = ["streamlit-button"]
 
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(f"**Confidence Score:** {response.conf}")
                 sources_header.markdown(f"**Sources:**")
 
                 # Create a markdown table
-                markdown_table = "| CID | SME | File Name |\n| --- | --- | --- |\n|" 
-                for i in range(len(CIDs)):
-                    markdown_table += "[{0}]({1}) | {2} | {3} |\n|".format(CIDs[i], response.source_links[i], response.smes[i], response.source_filenames[i]) 
+                markdown_table = "| CID | SME |\n| --- | --- |\n|" 
+                
+                for i in range(len(cids)):
+                    markdown_table += "[{0}]({1}) | {2}|\n".format(cids[i], source_links[i], smes[i]) 
                 sources_slot.write(markdown_table, unsafe_allow_html=True)
 
-                # Write most relavent SME
-                best_sme = utils.parse_sme_name(best_sme)
+                # Write most relevant SME
                 best_sme_slot.markdown(f"**SME:** {best_sme} ")
 
-                # Write drafted email
-                with draft_email.expander('Draft an email to the SME'):
-                    if draft_email.expander:
-                        email_text = utils.get_email_text(query, best_sme)
-                        email_header.markdown("### Email to SME:")
-                        email_content.write(email_text)
+                # # Write drafted email
+                # with draft_email.expander('Draft an email to the SME'):
+                #     if draft_email.expander:
+                #         email_text = utils.get_email_text(query, best_sme)
+                #         email_header.markdown("### Email to SME:")
+                #         email_content.write(email_text)
                 questions.clear()
 
             elif len(questions) > 1: # Multiple questions case
                 print(f"\n\nQuestion length is: {len(questions)}\n\n")
 
-                # Initialize empty lists for answers, CIDs, source_links, source_filenames, SMEs, and confidences
-                answers, CIDs, source_links, source_filenames, best_SMEs, confidences = [], [], [], [], [], []
+                # Initialize empty lists for answers, CIDs, source_links, SMEs, and confidences
+                answers, cids, source_links, best_smes, confidences = [], [], [], [], []
 
                 # Initiate variabels for multi-threading
                 lock = threading.Lock()
@@ -156,52 +159,26 @@ def main():
 
                         # Append empty strings and lists to answers, CIDs, source_links, source_filenames, and SMEs
                         answers.append("")
-                        CIDs.append([])
+                        cids.append([])
                         source_links.append([])
-                        source_filenames.append([])
-                        best_SMEs.append([])
+                        best_smes.append([])
                         confidences.append(0)
-
-                    # Start a new thread for each question
-                    # thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
-                    # thread.start()
-                    # threads.append(thread)
+                    
+                # Progress bar
                 num_complete = [0]
                 progress_text = "Questions being answered, please wait."
                 progress_bar = st.progress((num_complete[0] / len(questions)), text=progress_text)
 
+                # Thread creation
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                     for i, question in enumerate(questions):
-                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, num_complete, progress_text, progress_bar))
+                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, cids, source_links,  best_smes, confidences, i, lock, num_complete, progress_text, progress_bar))
                         for thread in executor._threads:
                             add_script_run_ctx(thread)
-
-                # Wait for threads, timeout threads if they take too long
-                # for thread in threads:
-                #     thread.join(timeout=18)
-
-                #     if thread.is_alive():
-
-                #         # Set stop flag to signal thread to stop gracefully
-                #         stop_flag = True
-                #         thread.join()
-
-                #         # Start a new thread to replace the stopped thread
-                #         with lock:
-                #             answers[i] = ""
-                #             CIDs[i] = []
-                #             source_links[i] = []
-                #             source_filenames[i] = []
-                #             best_SMEs[i] = []
-                #             confidences[i] = 0
-                #         new_thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, stop_flag))
-                #         new_thread.start()
-                #         threads.append(new_thread)
 
                 #  Download file for multiple questions answers
                 st.markdown("### Download")
 
-                # Format for excel
                 # print(f"questions: {len(questions)}")
                 # print(f"answers: {len(answers)}")
                 # print(f"confidences: {len(confidences)}")
@@ -216,7 +193,7 @@ def main():
                 # print(f"source_filenames: {source_filenames}")
 
                 # Format for excel
-                a = {'Question' : questions ,'Answer' : answers , 'Confidence': confidences , 'SMEs': best_SMEs, 'Source Links': source_links, 'Souce Filenames': source_filenames}
+                a = {'Question' : questions ,'Answer' : answers , 'Confidence': confidences , 'SMEs': best_smes, 'Source Links': source_links}
                 df = pd.DataFrame.from_dict(a, orient='index')
                 df = df.transpose()
                 #df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_SMEs, "Source Links": source_links, "Souce Filenames": source_filenames})
