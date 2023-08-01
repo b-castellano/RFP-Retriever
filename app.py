@@ -22,6 +22,7 @@ from response import Response
 # Streamlit
 import streamlit as st
 from streamlit_extras.add_vertical_space import add_vertical_space
+from streamlit.runtime.scriptrunner import add_script_run_ctx
 
 import concurrent.futures
 
@@ -165,10 +166,15 @@ def main():
                     # thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
                     # thread.start()
                     # threads.append(thread)
+                num_complete = [0]
+                progress_text = "Questions being answered, please wait."
+                progress_bar = st.progress((num_complete[0] / len(questions)), text=progress_text)
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                     for i, question in enumerate(questions):
-                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock))
+                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, num_complete, progress_text, progress_bar))
+                        for thread in executor._threads:
+                            add_script_run_ctx(thread)
 
                 # Wait for threads, timeout threads if they take too long
                 # for thread in threads:
