@@ -129,7 +129,7 @@ def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
 
 # Get response for query
-def get_response(pipe, query, lock):
+def get_response(pipe, query, lock=threading.Lock()):
     lock.acquire()
 
     prediction, closeMatch = query_faiss(query, pipe)
@@ -158,7 +158,6 @@ def get_response(pipe, query, lock):
             answer, ids = func_timeout(15, call_gpt,args=(messages))
         except:
             print("Restarting GPT call")
-            lock.release()
             get_response(pipe, query, lock)
 
         conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
