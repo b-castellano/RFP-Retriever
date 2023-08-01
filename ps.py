@@ -59,7 +59,6 @@ def init_gpt():
     if content is None:
         raise Exception("Error reading gpt-config")
 
-
     openai.api_key = content["api_key"]
     openai.api_type = content["api_type"] 
     openai.api_version = content["api_version"]
@@ -96,38 +95,18 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     question = questions[i]
     response = Response()
 
-    #print("Preprocessing Info:\n")
-    #print(f"Questions: {questions}\n Answers: {answers}\n CIDs: {CIDs}\n Source Links: {source_links}\n Source Filenames: {source_filenames}\n Best SME: {best_SMEs} Confidences: {confidences}\n")
-
     # Get relavent response for question
     response = get_response(pipe, question, lock)
 
-    # print("Post processing:\n")
-    # print(f"{response}\n")
-    # print(f"Questions: {questions}\n Answers: {response.answer}\n CIDs: {response.cids}\n Source Links: {response.source_links}\n Source Filenames: {response.source_filenames}\n Best SME: {response.best_sme} Confidences: {response.conf}\n")
-
-
-    # Check if source links and source filenames are not lists
+    # Remove empty strings in lists
     source_links_i = response.source_links
     source_filenames_i = response.source_filenames
-    #if type(source_links_i) == str:
-    #   source_links_i = [source_links_i]
-    #if type(source_filenames_i) == str and source_filenames_i != None:
-    #    source_filenames_i = [source_filenames_i]
-
-    # print("Post string pocessing DISABLED:")
-    # print(f"Source Links i: {source_links_i}\n Source Filenames i: {source_filenames_i}\n")
-
-    # Remove empty strings in lists
     source_links_i = list(filter(lambda x: x != '', source_links_i))
     if source_links_i is None:
         source_links_i = [["N/A"]]
     source_filenames_i = list(filter(lambda x: x != '', source_filenames_i))
     if source_filenames_i is None:
         source_filenames_i = [["N/A"]]
-
-    # print("Post None Check")
-    # print(f"Source Links i: {source_links_i}\n Source Filenames i: {source_filenames_i}\n")
 
     # Feed prompt into gpt, store query & output in session state for threads
     lock.acquire()
@@ -143,8 +122,6 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     num_complete.append(num_complete.pop() + 1)
     print("num_complete:", num_complete[0])
     lock.release()
-    # progress_text = "Questions being answered, please wait."
-    # progress_bar = st.progress((num_complete[0] / len(questions)), text=progress_text)
     progress_bar.progress((num_complete[0] / len(questions)), progress_text)
 
 # Get response for query
@@ -288,7 +265,6 @@ def call_gpt(messages, foo):
         presence_penalty=0.0
     )
     output = response['choices'][0]['message']['content']
-    print(output)
 
     # Extract cids from gpt output
     ids = re.findall(r"CID\d+", output)

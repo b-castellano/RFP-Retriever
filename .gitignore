@@ -1,0 +1,10 @@
+__pycache__
+.idea
+.streamlit
+Output
+Tests
+faiss_document_store.db
+gpt-config.json
+my_faiss_index.faiss
+my_faiss_index.json
+qna.csv
