@@ -176,7 +176,7 @@ def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No",
     
     prefix = """Assistant is a large language model designed by the Security Sages to answer questions for an Information Security enterprise professionally. 
     Provided is some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. 
-    Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
+    Use the answers within the context to answer the question in a concise manner. If possible, respond with only yes or no. At the end of your response, list the question IDs of the answers you referenced."""
 
     # Create context
     context = ""
@@ -202,7 +202,17 @@ def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No",
         {"role": "user", "content": "Is company information backed up regularly?"},
         {"role": "assistant", "content": 
         """
-        Yes. (CID10491, CID94823)
+        Yes. (CID46487)
+        """},
+        {"role": "user", "content": "Is your Business Continuity Management program certified under any frameworks?"},
+        {"role": "assistant", "content": 
+        """
+        No. (CID46888)
+        """},
+        {"role": "user", "content": "Does your company provide Information Security Training?"},
+        {"role": "assistant", "content": 
+        """
+        Yes. (CID46476)
         """},
         {"role": "user", "content": "How are offsite backup processes managed to protect against ransomware?"},
         {"role": "assistant", "content": 
@@ -215,6 +225,12 @@ def create_prompt(query, prediction):  ## May add a parameter "Short", "Yes/No",
         restoration purposes only. The backup solution from IBM additionally provides ransomware detection configurations 
         which we have implemented to ensure that security alerts for potential data attacks are bubbled up for action at 
         the point of detection. (CID83724, CID53133, CID00947)
+        """
+        },
+        {"role": "user", "content": "For Live and Work Well, what Cloud Service Providers does your solution support?"},
+        {"role": "assistant", "content": 
+        """
+        For externally hosted applications, MS Azure is a preferred Cloud Service Provider for Optum Behavioral Health. (CID55595)
         """
         },
         {"role": "user", "content": query},
@@ -296,7 +312,5 @@ def get_info(prediction, docs, ids):
     conf = utils.compute_average_score(docs_used)
     conf = round(conf,2)
     print(conf)
-
-
-
+    
     return conf, CIDs, source_links, source_filenames, SMEs, best_sme

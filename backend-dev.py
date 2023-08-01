@@ -118,7 +118,6 @@ def query_faiss(query, pipe):
     docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
 
     # If there is a close match (>=95% confidence) between user question and pulled doc, then just return that doc's answer
-    print(docs["documents"])
     if docs["documents"][0].score >= .95:
         return docs["documents"][0], True
     
@@ -134,10 +133,11 @@ def create_prompt(query, prediction):
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
 
     # Provide instructions/prefix
-    prefix = """Assistant is a large language model designed to answer questions for an Information Security enterprise professionally. 
+    prefix = """Assistant is a large language model designed by the Security Sages to answer questions for an Information Security enterprise professionally. 
     Provided is some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. 
-    Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
-    
+    Use the answers within the context to answer the question in a concise manner. If possible, respond with only yes or no.
+     At the end of your response, list the question IDs of the answers you referenced."""
+
     context = ""
     scores = {}
     alts = []
@@ -167,7 +167,17 @@ def create_prompt(query, prediction):
         {"role": "user", "content": "Is company information backed up regularly?"},
         {"role": "assistant", "content": 
         """
-        Yes. (CID10491, CID94823)
+        Yes. (CID46487)
+        """},
+        {"role": "user", "content": "Is your Business Continuity Management program certified under any frameworks?"},
+        {"role": "assistant", "content": 
+        """
+        No. (CID46888)
+        """},
+        {"role": "user", "content": "Does your company provide Information Security Training?"},
+        {"role": "assistant", "content": 
+        """
+        Yes. (CID46476)
         """},
         {"role": "user", "content": "How are offsite backup processes managed to protect against ransomware?"},
         {"role": "assistant", "content": 
@@ -237,7 +247,8 @@ def call_gpt(messages,scores,alts):
     return output
 
 def compute_average(ids, scores):
-
+    print(ids)
+    print(scores)
     total = 0
 
     for id in ids:
