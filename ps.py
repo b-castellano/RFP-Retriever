@@ -155,13 +155,11 @@ def get_response(pipe, query, lock=threading.Lock()):
         messages, docs = create_prompt(query, prediction)
         lock.release()
         try:
-            answer, ids = func_timeout(15, call_gpt,args=(messages))
+            foo = "foo"
+            answer, ids = func_timeout(15, call_gpt, args=(messages, foo))
         except FunctionTimedOut:
             print("Restarting GPT call")
             get_response(pipe, query, lock)
-
-        conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
-        conf = f"{round(conf,2)}%"
 
         response = get_info(prediction, docs, ids)
         response.answer = simplify_answer(query, answer)
@@ -258,7 +256,7 @@ def create_prompt(query, prediction):
     return messages, docs
     
 # Call openai API and compute confidence
-def call_gpt(messages):
+def call_gpt(messages, foo):
 
     deployment_id = "deployment-ae1a29d047eb4619a2b64fb755ae468f"
     response = openai.ChatCompletion.create(
