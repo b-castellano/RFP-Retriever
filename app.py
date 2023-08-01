@@ -106,20 +106,14 @@ def main():
                 st.session_state.responses.append(output)
 
                 # Write response
-                response_header_slot.markdown(f"**Answer:**\n")
-                response_slot.write(f"{output}")  
+                # response_slot.write(f
+                # '''
+                # **Answer:**
 
-                # Copy response
-                # with response_copy.button('Copy Response'):
-                #     st.write("Copied response!")
-                #     pc.copy(output) 
-
-                # icon=FontAwesomeIcon(icon_name="fa-clipboard")
-
-                # response_copy.button("button_click", CustomJS(code="""
-                #     navigator.clipboard.writeText(output);
-                #     """))
-                # response_copy.css_classes = ["streamlit-button"]
+                #     {output}
+                # ''')  
+                response_header_slot.markdown(f"**Answer:**")
+                response_slot.write(f"<code>\n{output}\n</code>", unsafe_allow_html=True)
 
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(f"**Confidence Score:** {response.conf}")
@@ -128,7 +122,6 @@ def main():
                 # Create a markdown table
                 markdown_table = "| CID | SME |\n| --- | --- |\n|" 
                 
-              
                 for i in range(len(cids)):
                     markdown_table += "[{0}]({1}) | {2}|\n".format(cids[i], source_links[i], smes[i]) 
                 sources_slot.write(markdown_table, unsafe_allow_html=True)
@@ -142,13 +135,12 @@ def main():
                 #         email_text = utils.get_email_text(query, best_sme)
                 #         email_header.markdown("### Email to SME:")
                 #         email_content.write(email_text)
-
                 questions.clear()
 
             elif len(questions) > 1: # Multiple questions case
                 print(f"\n\nQuestion length is: {len(questions)}\n\n")
 
-                # Initialize empty lists for answers, cids, source_links, SMEs, and confidences
+                # Initialize empty lists for answers, CIDs, source_links, SMEs, and confidences
                 answers, cids, source_links, best_smes, confidences = [], [], [], [], []
 
                 # Initiate variabels for multi-threading
@@ -165,36 +157,37 @@ def main():
                         source_links.append([])
                         best_smes.append([])
                         confidences.append(0)
-
-                    # Start a new thread for each question
-                    # thread = threading.Thread(target=ps.get_responses, args=(pipe, questions, answers, cids, source_linkssme, confidences, i, lock))
-                    # thread.start()
-                    # threads.append(thread)
+                    
+                # Progress bar
                 num_complete = [0]
                 progress_text = "Questions being answered, please wait."
                 progress_bar = st.progress((num_complete[0] / len(questions)), text=progress_text)
 
+                # Thread creation
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                     for i, question in enumerate(questions):
-                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, cids, source_links, best_smes, confidences, i, lock, num_complete, progress_text, progress_bar))
+                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, cids, source_links,  best_smes, confidences, i, lock, num_complete, progress_text, progress_bar))
                         for thread in executor._threads:
                             add_script_run_ctx(thread)
 
                 #  Download file for multiple questions answers
                 st.markdown("### Download")
 
-                # source_links = list(filter(None,source_links))
-                # source_filenames = list(filter(None,source_filenames))
+                # print(f"questions: {len(questions)}")
+                # print(f"answers: {len(answers)}")
+                # print(f"confidences: {len(confidences)}")
+                # print(f"best_SMEs: {len(best_SMEs)}")
+                # print(f"source_links: {len(source_links)}")
+                # print(f"source_filenames: {len(source_filenames)}")
+                # print(f"questions: {questions}")
+                # print(f"answers: {answers}")
+                # print(f"confidences: {confidences}")
+                # print(f"best_SMEs: {best_SMEs}")
+                # print(f"source_links: {source_links}")
+                # print(f"source_filenames: {source_filenames}")
 
                 # Format for excel
-                print(f"questions: {len(questions)}")
-                print(f"answers: {len(answers)}")
-                print(f"confidences: {len(confidences)}")
-                print(f"sme: {len(best_smes)}")
-                print(f"source_links: {len(source_links)}")
-
-                # Format for excel
-                a = {'Question' : questions ,'Answer' : answers , 'Confidence': confidences , 'SMEs':best_smes, 'Source Links': source_links}
+                a = {'Question' : questions ,'Answer' : answers , 'Confidence': confidences , 'SMEs': best_smes, 'Source Links': source_links}
                 df = pd.DataFrame.from_dict(a, orient='index')
                 df = df.transpose()
                 #df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs"sme, "Source Links": source_links, "Souce Filenames": source_filenames})

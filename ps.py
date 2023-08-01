@@ -96,24 +96,38 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     question = questions[i]
     response = Response()
 
+    #print("Preprocessing Info:\n")
+    #print(f"Questions: {questions}\n Answers: {answers}\n CIDs: {CIDs}\n Source Links: {source_links}\n Source Filenames: {source_filenames}\n Best SME: {best_SMEs} Confidences: {confidences}\n")
+
     # Get relavent response for question
     response = get_response(pipe, question, lock)
 
+    # print("Post processing:\n")
+    # print(f"{response}\n")
+    # print(f"Questions: {questions}\n Answers: {response.answer}\n CIDs: {response.cids}\n Source Links: {response.source_links}\n Source Filenames: {response.source_filenames}\n Best SME: {response.best_sme} Confidences: {response.conf}\n")
+
+
     # Check if source links and source filenames are not lists
     source_links_i = response.source_links
+    source_filenames_i = response.source_filenames
+    #if type(source_links_i) == str:
+    #   source_links_i = [source_links_i]
+    #if type(source_filenames_i) == str and source_filenames_i != None:
+    #    source_filenames_i = [source_filenames_i]
 
-    if type(source_links_i) == str:
-       source_links_i = [source_links_i]
+    # print("Post string pocessing DISABLED:")
+    # print(f"Source Links i: {source_links_i}\n Source Filenames i: {source_filenames_i}\n")
 
-
-    # source_links_i = list(filter(None, source_links_i))
+    # Remove empty strings in lists
+    source_links_i = list(filter(lambda x: x != '', source_links_i))
     if source_links_i is None:
         source_links_i = [["N/A"]]
-   
+    source_filenames_i = list(filter(lambda x: x != '', source_filenames_i))
+    if source_filenames_i is None:
+        source_filenames_i = [["N/A"]]
 
-    # Filter out None entries in lists
-    #source_links_i = list(filter(None, source_links_i))
-    #source_filenames_i = list(filter(None, source_filenames_i))
+    # print("Post None Check")
+    # print(f"Source Links i: {source_links_i}\n Source Filenames i: {source_filenames_i}\n")
 
     # Feed prompt into gpt, store query & output in session state for threads
     lock.acquire()
@@ -143,7 +157,7 @@ def get_response(pipe, query, lock=threading.Lock()):
     # If a close match was found, just return that answer
     if closeMatch:
         answer = prediction.meta["answer"].split(",")
-        response.answer = simplify_answer(query, re.sub("[\[\]'\"]","", answer[0]))
+        response.answer = simplify_answer(query, re.sub("[\[\]'\"]", "", answer[0]))
         response.conf = f"{round((prediction.score * 100),2)}%"
         response.cids = [prediction.meta["cid"]]
         response.source_links = [prediction.meta["url"]]
@@ -160,7 +174,7 @@ def get_response(pipe, query, lock=threading.Lock()):
         lock.release()
         try:
             foo = "foo"
-            answer, ids = func_timeout(10, call_gpt, args=(messages, foo))
+            answer, ids = func_timeout(20, call_gpt, args=(messages, foo))
         except FunctionTimedOut:
             print("Restarting GPT call")
             return get_response(pipe, query, lock)
@@ -308,19 +322,32 @@ def get_info(prediction, docs, ids):
 
     for id in ids:  ## If gpt found ids
         
-        # Get relavent data for returned ids
+        # Check if a CID given by gpt is invalid (not real)
+        try:
+            docs[id]
+
+        # If so, skip it
+        except:
+            continue
+
+        # Get relevant data for returned ids
         cids.append(docs[id].meta["cid"])
         source_links.append(docs[id].meta["url"])
         smes.append(docs[id].meta["sme"])
         docs_used[docs[id].meta["cid"]] = docs[id]
 
         # Find sme with highest confidence document
-        if best_score < docs_used[id].score:
+        if best_score < docs_used[id].score and docs_used[id].meta["sme"] != "":
             best_sme = docs_used[id].meta["sme"]
 
+
     # Get average confidence score for used documents
-    conf = utils.compute_average_score(docs_used)
-    conf = f"{round(conf,2)}%"
+    if len(docs_used) == 0:
+        conf = 0
+    
+    else:
+        conf = utils.compute_average_score(docs_used)
+        conf = f"{round(conf,2)}%"
     
     # Populate response object with info
     response.conf = conf
