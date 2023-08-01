@@ -106,7 +106,7 @@ def main():
 
                 # Write response
                 response_header_slot.markdown(f"**Answer:**\n")
-                response_slot.write(f"\n\n{output}")  
+                response_slot.write(f"{output}")  
 
                 # Copy response
                 # with response_copy.button('Copy Response'):
