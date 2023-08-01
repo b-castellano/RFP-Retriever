@@ -28,9 +28,6 @@ from streamlit.runtime.scriptrunner import add_script_run_ctx
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-### Setup session storage
-st.session_state.responses = []
-
 # Sidebar contents
 with st.sidebar:
     st.title('RFP Retriever')
@@ -46,6 +43,9 @@ def main():
 
     # Initialize pipline
     pipe = ps.init()
+    
+    ### Setup session storage
+    st.session_state.responses = []
 
     # Init UI Header/File Upload
     st.header("Ask a Question:")
