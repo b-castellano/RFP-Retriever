@@ -156,7 +156,7 @@ def get_response(pipe, query, lock=threading.Lock()):
         lock.release()
         try:
             answer, ids = func_timeout(15, call_gpt,args=(messages))
-        except:
+        except FunctionTimedOut:
             print("Restarting GPT call")
             get_response(pipe, query, lock)
 

@@ -22,3 +22,4 @@ fontawesome
 
 # macfsevents, if hosted on mac os
 func_timeout
+fontawesome
