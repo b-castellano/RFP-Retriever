@@ -12,6 +12,8 @@ import utils
 from func_timeout import func_timeout, FunctionTimedOut
 from response import Response
 
+import app
+
 def init():
     # Initialize document store
     document_store, loaded = init_store()
@@ -89,7 +91,7 @@ def write_docs(document_store, retriever):
     print("docs embedded:", document_store.get_embedding_count())
 
 # Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock):
+def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock, num_complete):
     print(f"Running question {i + 1}")
     question = questions[i]
     response = Response()
@@ -127,6 +129,13 @@ def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames
     lock.release()
 
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
+    lock.acquire()
+    num_complete.append(num_complete.pop() + 1)
+    print("num_complete:", num_complete[0])
+    lock.release()
+    progress_text = "Questions being answered, please wait."
+    progress_bar = st.progress((num_complete / len(questions)), text=progress_text)
+    # progress_bar.progress((num_complete / len(questions)), progress_text)
 
 # Get response for query
 def get_response(pipe, query, lock=threading.Lock()):
