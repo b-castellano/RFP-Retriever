@@ -123,6 +123,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     num_complete.append(num_complete.pop() + 1)
     print("num_complete:", num_complete[0])
     lock.release()
+    progress_text = f"Questions being answered, please wait. ({num_complete[0]} / {len(questions)} complete)"
     progress_bar.progress((num_complete[0] / len(questions)), progress_text)
 
 # Get response for query
