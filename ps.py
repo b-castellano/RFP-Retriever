@@ -250,6 +250,8 @@ def create_prompt(query, prediction, history):
         }
     ]
 
+    if len(history) > 10:
+        history = history[-10:]
     for pair in history:
         print(pair)
         if type(pair) == list:
