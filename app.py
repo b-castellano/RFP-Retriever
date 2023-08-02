@@ -45,7 +45,8 @@ def main():
     pipe = ps.init()
 
     ### Setup session storage
-    st.session_state.responses = []
+    if "responses" not in st.session_state:
+        st.session_state.responses = []
 
     # Init UI Header/File Upload
     st.header("Ask a Question:")
@@ -91,7 +92,7 @@ def main():
             if len(questions) == 1: ## Single question case
 
                 # Get response from rfp-retriever and assign 
-                response = ps.get_response(pipe,questions[0])
+                response, prediction = ps.get_response(pipe,questions[0],history=st.session_state.responses)
                 output = response.answer
                 cids = response.cids
                 smes = response.smes
@@ -99,8 +100,10 @@ def main():
                 best_sme = response.best_sme
 
                 # Add query and output to front end
-                st.session_state.responses.append(questions[0])
-                st.session_state.responses.append(output)
+                # st.session_state.responses.append(questions[0])
+                # st.session_state.responses.append(output)
+
+                st.session_state.responses.append({"question":questions[0],"answer":output,"docs":prediction})
 
                 # Write response
                 # response_slot.write(f

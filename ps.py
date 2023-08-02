@@ -126,7 +126,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     progress_bar.progress((num_complete[0] / len(questions)), progress_text)
 
 # Get response for query
-def get_response(pipe, query, lock=threading.Lock()):
+def get_response(pipe, query, lock=threading.Lock(), history=["N/A"]):
     lock.acquire()
 
     prediction, closeMatch = query_faiss(query, pipe)
@@ -148,7 +148,7 @@ def get_response(pipe, query, lock=threading.Lock()):
     # No close match, so generate prompt from related docs
     else:
     
-        messages, docs = create_prompt(query, prediction)
+        messages, docs = create_prompt(query, prediction, history)
         lock.release()
         try:
             foo = "foo"
@@ -180,7 +180,7 @@ def query_faiss(query, pipe):
         return docs, False
         
 # Create prompt template
-def create_prompt(query, prediction):
+def create_prompt(query, prediction, history):
 
     print("Creating prompt")
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
@@ -250,6 +250,13 @@ def create_prompt(query, prediction):
         {"role": "user", "content": query},
     ]
 
+    for pair in history:
+        print(pair)
+        messages.append({"role": "user", "content": pair["question"]})
+        messages.append({"role": "assistant", "content": pair["answer"]})
+
+    print("docs:", docs)
+
     return messages, docs
     
 # Call openai API and compute confidence
@@ -315,6 +322,7 @@ def get_info(prediction, docs, ids):
         docs_used[docs[id].meta["cid"]] = docs[id]
 
         # Find sme with highest confidence document
+        best_sme = "N/A"
         if best_score < docs_used[id].score and docs_used[id].meta["sme"] != "":
             best_sme = docs_used[id].meta["sme"]
 
