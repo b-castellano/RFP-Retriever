@@ -300,19 +300,32 @@ def get_info(prediction, docs, ids):
 
     for id in ids:  ## If gpt found ids
         
-        # Get relavent data for returned ids
+        # Check if a CID given by gpt is invalid (not real)
+        try:
+            docs[id]
+
+        # If so, skip it
+        except:
+            continue
+
+        # Get relevant data for returned ids
         cids.append(docs[id].meta["cid"])
         source_links.append(docs[id].meta["url"])
         smes.append(docs[id].meta["sme"])
         docs_used[docs[id].meta["cid"]] = docs[id]
 
         # Find sme with highest confidence document
-        if best_score < docs_used[id].score:
+        if best_score < docs_used[id].score and docs_used[id].meta["sme"] != "":
             best_sme = docs_used[id].meta["sme"]
 
+
     # Get average confidence score for used documents
-    conf = utils.compute_average_score(docs_used)
-    conf = f"{round(conf,2)}%"
+    if len(docs_used) == 0:
+        conf = 0
+    
+    else:
+        conf = utils.compute_average_score(docs_used)
+        conf = f"{round(conf,2)}%"
     
     # Populate response object with info
     response.conf = conf

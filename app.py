@@ -103,8 +103,14 @@ def main():
                 st.session_state.responses.append(output)
 
                 # Write response
-                response_header_slot.markdown(f"**Answer:**\n")
-                response_slot.write(f"```\n{output}\n```")  
+                # response_slot.write(f
+                # '''
+                # **Answer:**
+
+                #     {output}
+                # ''')  
+                response_header_slot.markdown(f"**Answer:**")
+                response_slot.write(f"<code>\n{output}\n</code>", unsafe_allow_html=True)
 
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(f"**Confidence Score:** {response.conf}")
@@ -141,7 +147,7 @@ def main():
                 for i, question in enumerate(questions):
                     with lock:
 
-                        # Append empty strings and lists to answers, CIDs, source_links, source_filenames, and SMEs
+                        # Append empty strings and lists to answers, cids, source_links, source_filenames, and SMEs
                         answers.append("")
                         cids.append([])
                         source_links.append([])
