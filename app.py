@@ -30,6 +30,8 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 ### Setup session storage
 st.session_state.responses = []
+st.session_state.data = []
+st.session_state.submit = False
 
 # Sidebar contents
 with st.sidebar:
@@ -43,7 +45,6 @@ with st.sidebar:
     st.write('By: *The Security Sages*')
 
 def main():
-
     # Initialize pipline
     pipe = ps.init()
 
@@ -79,9 +80,9 @@ def main():
     sources_slot_copy_button = st.empty()
     best_sme_slot = st.empty()
 
-    draft_email = st.empty()
-    email_header = st.empty()
-    email_content = st.empty()
+    # draft_email = st.empty()
+    # email_header = st.empty()
+    # email_content = st.empty()
 
     if query or submitted: ## If user submits a question
         try:
@@ -89,7 +90,6 @@ def main():
                 questions.append(query)
 
             if len(questions) == 1: ## Single question case
-
                 # Get response from rfp-retriever and assign 
                 response = ps.get_response(pipe,questions[0])
                 output = response.answer
@@ -130,6 +130,7 @@ def main():
 
             elif len(questions) > 1: # Multiple questions case
                 print(f"\n\nQuestion length is: {len(questions)}\n\n")
+                st.session_state.submit = True
 
                 # Initialize empty lists for answers, CIDs, source_links, SMEs, and confidences
                 answers, cids, source_links, best_smes, confidences = [], [], [], [], []
@@ -160,13 +161,11 @@ def main():
                         for thread in executor._threads:
                             add_script_run_ctx(thread)
 
-                #  Download file for multiple questions answers
-                st.markdown("### Download")
-
-                # Format for excel
+                # Create dataframe for display
                 df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_smes, "Source Links": source_links})
+                st.session_state.data.append(df)
                 sources_slot.write(df)
-
+                
                 # Copy button for only question, answer columns
                 copy_qa_button = Button(label="Copy Questions, Answers only")
                 df_copy = df.iloc[:, :2].to_csv(sep='\t') # Select first two columns and convert to CSV
@@ -180,15 +179,11 @@ def main():
                     """))
                 copy_all_button.css_classes = ["streamlit-button"]
 
-                # Download buttons for csv/excel, put buttons on UI
+                # Create file and html table from dataframe and append to session state
                 file = utils.to_excel(df, rows)
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.bokeh_chart(copy_qa_button)
-                    st.download_button(label='Download Excel', data=file, file_name="text_2.xlsx")
-                with col2:
-                    st.bokeh_chart(copy_all_button)
-                    st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
+                df_html = utils.to_html(df, cids)
+                st.session_state.data.append(file)
+                st.session_state.data.append(df_html)
 
             else:
                 st.error("No questions detected")

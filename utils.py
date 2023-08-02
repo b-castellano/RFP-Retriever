@@ -111,7 +111,19 @@ def getMostRecentDate(x, y):
     else:
         return date_y
 
-# def get_email_text(query, best_sme, email_header, email_content):
+# Convert dataframe to html table with hyperlinks
+def to_html(df, cids):
+    n = 0
+    for cid in cids:
+        links = df["Source Links"].iloc[n]
+        k = 0
+        for link in links:
+            links[k] = f'<a target="_blank" href="{link}">{cid[k]}</a>'
+            k += 1
+        df["Source Links"].iloc[n] = links
+        n += 1
+    return df
+
 def get_email_text(query, best_sme):
 
     print("Drafting email...")
