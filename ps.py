@@ -96,7 +96,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     response = Response()
 
     # Get relevant response for question
-    response = get_response(pipe, question, lock)
+    response = get_response(pipe, question, lock=lock)
 
     # Remove empty strings in lists
     source_links_i = response.source_links
@@ -155,7 +155,7 @@ def get_response(pipe, query, lock=threading.Lock(), history=["N/A"]):
             answer, ids = func_timeout(20, call_gpt, args=(messages, foo))
         except FunctionTimedOut:
             print("Restarting GPT call")
-            return get_response(pipe, query, lock)
+            return get_response(pipe, query, lock=lock)
 
         response = get_info(prediction, docs, ids)
         response.answer = simplify_answer(query, answer)
@@ -251,8 +251,9 @@ def create_prompt(query, prediction, history):
 
     for pair in history:
         print(pair)
-        messages.append({"role": "user", "content": pair["question"]})
-        messages.append({"role": "assistant", "content": pair["answer"]})
+        if type(pair) == list:
+            messages.append({"role": "user", "content": pair["question"]})
+            messages.append({"role": "assistant", "content": pair["answer"]})
 
     messages.append({"role": "user", "content": query})
     return messages, docs
