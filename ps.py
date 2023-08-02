@@ -95,7 +95,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     question = questions[i]
     response = Response()
 
-    # Get relavent response for question
+    # Get relevant response for question
     response = get_response(pipe, question, lock)
 
     # Remove empty strings in lists
@@ -108,7 +108,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     if source_filenames_i is None:
         source_filenames_i = [["N/A"]]
 
-    # Feed prompt into gpt, store query & output in session state for threads
+    # Output response to session state
     lock.acquire()
     answers[i] = response.answer
     cids[i] = response.cids
@@ -117,6 +117,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     confidences[i] = response.conf
     lock.release()
 
+    # Update the number of completed threads/questions and move progress bar
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
     lock.acquire()
     num_complete.append(num_complete.pop() + 1)
@@ -209,6 +210,7 @@ def create_prompt(query, prediction):
         
     system_prompt = prompt.format(prefix=prefix, question=query, context=context)
 
+    # Few-shot training examples
     messages=[
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": "Is company information backed up regularly?"},

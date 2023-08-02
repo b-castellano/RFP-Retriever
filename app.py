@@ -45,7 +45,7 @@ def main():
 
     # Initialize pipline
     pipe = ps.init()
-    
+
     ### Setup session storage
     st.session_state.responses = []
 
@@ -167,8 +167,12 @@ def main():
 
                 # Thread creation
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+
+                    # Schedule a thread for each question in the sheet
                     for i, question in enumerate(questions):
                         threads.append(executor.submit(ps.get_responses, pipe, questions, answers, cids, source_links,  best_smes, confidences, i, lock, num_complete, progress_text, progress_bar))
+                        
+                        # Enable multi-threading for Streamlit, used for progress bar
                         for thread in executor._threads:
                             add_script_run_ctx(thread)
 
