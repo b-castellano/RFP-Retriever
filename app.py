@@ -11,8 +11,8 @@ import pyperclip as pc
 import threading
 from bokeh.models.widgets import Button
 from bokeh.models import CustomJS
-import fontawesome as fa
 import concurrent.futures
+from custom_html import custom_response
 
 # External Files
 import utils
@@ -106,14 +106,11 @@ def main():
                 st.session_state.responses.append({"question":questions[0],"answer":output})
 
                 # Write response
-                # response_slot.write(f
-                # '''
-                # **Answer:**
-
-                #     {output}
-                # ''')  
+               
                 response_header_slot.markdown(f"**Answer:**")
-                response_slot.write(f"<code>\n{output}\n</code>", unsafe_allow_html=True)
+            #  f""<code>\n{output}\n</code>
+                response_slot.write(custom_response(output), unsafe_allow_html=True)
+
 
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(f"**Confidence Score:** {response.conf}")

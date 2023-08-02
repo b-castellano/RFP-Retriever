@@ -280,10 +280,6 @@ def call_gpt(messages, foo):
     ids = list(set(ids))
     output = re.sub(r"\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
 
-    # Handle case where gpt doesn't output sources in prompt
-    if ids == None or len(ids) == 0:
-        return output, None
-
     return output, ids
 
 # Gets additional data for output
@@ -295,14 +291,14 @@ def get_info(prediction, docs, ids):
     if ids == None or len(ids) == 0: # If gpt did not find ids
         ids = []
 
-        # Use all ids
+        # Use all ids to get information
         for answer in prediction["answers"]:
             ids.append(answer.meta["cid"])
         
     
     ids = list(set(ids)) ## Remove duplicates in found ids
     best_score = 0
-    best_sme = "N/A"
+    best_sme = "Not Found"
 
     for id in ids:  ## If gpt found ids
         
