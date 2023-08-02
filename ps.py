@@ -285,7 +285,8 @@ def get_info(prediction, docs, ids):
     cids, smes, source_links = [], [], []
     docs_used = {}
 
-    if ids == None: # If gpt did not find ids
+    if ids == None or len(ids) == 0: # If gpt did not find ids
+
         ids = []
 
         # Use all ids
@@ -313,7 +314,9 @@ def get_info(prediction, docs, ids):
         docs_used[docs[id].meta["cid"]] = docs[id]
 
         # Find sme with highest confidence document
-        if best_score < docs_used[id].score and docs_used[id].meta["sme"] != "":
+        best_sme = "Not Found"
+        
+        if docs_used[id].score > best_score and docs_used[id].meta["sme"] != "":
             best_sme = docs_used[id].meta["sme"]
 
 
@@ -334,7 +337,7 @@ def get_info(prediction, docs, ids):
 
     return response
 
-    # Searches answer for yes or no response and outputs that for simplified answer
+ # Searches answer for yes or no response and outputs that for simplified answer
 def simplify_answer(query, answer):
     query = query.strip()
     answer = answer.strip()

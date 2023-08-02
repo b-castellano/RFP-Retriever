@@ -1,6 +1,7 @@
 ## NOTE: Bot responses can be changed by adding documents with valuable QA pairs to RFP. Consider this option if you are attempting to tweak responses
 
 # General
+from turtle import onclick
 import warnings
 import os
 import numpy as np
@@ -13,6 +14,7 @@ from bokeh.models.widgets import Button
 from bokeh.models import CustomJS
 import fontawesome as fa
 import concurrent.futures
+import pyperclip as pc
 
 # External Files
 import utils
@@ -103,14 +105,18 @@ def main():
                 st.session_state.responses.append(output)
 
                 # Write response
-                # response_slot.write(f
-                # '''
-                # **Answer:**
 
-                #     {output}
-                # ''')  
                 response_header_slot.markdown(f"**Answer:**")
-                response_slot.write(f"<code>\n{output}\n</code>", unsafe_allow_html=True)
+
+                response_slot.markdown(f"<code>\n{output}\n</code>", unsafe_allow_html = True)
+
+                
+                # This copy button refreshes the page, so not ideal
+
+                # def copying():
+                #     pc.copy(output)
+                # response_slot.markdown(output)
+                # response_copy.button("Copy", on_click=copying)
 
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(f"**Confidence Score:** {response.conf}")
