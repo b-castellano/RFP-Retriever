@@ -281,7 +281,7 @@ def call_gpt(messages, foo):
     output = re.sub(r"\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
 
     # Handle case where gpt doesn't output sources in prompt
-    if ids is None or len(ids) == 0:
+    if ids == None or len(ids) == 0:
         return output, None
 
     return output, ids
@@ -292,7 +292,7 @@ def get_info(prediction, docs, ids):
     cids, smes, source_links = [], [], []
     docs_used = {}
 
-    if ids == None: # If gpt did not find ids
+    if ids == None or len(ids) == 0: # If gpt did not find ids
         ids = []
 
         # Use all ids
@@ -302,6 +302,7 @@ def get_info(prediction, docs, ids):
     
     ids = list(set(ids)) ## Remove duplicates in found ids
     best_score = 0
+    best_sme = "N/A"
 
     for id in ids:  ## If gpt found ids
         
@@ -320,7 +321,6 @@ def get_info(prediction, docs, ids):
         docs_used[docs[id].meta["cid"]] = docs[id]
 
         # Find sme with highest confidence document
-        best_sme = "N/A"
         if best_score < docs_used[id].score and docs_used[id].meta["sme"] != "":
             best_sme = docs_used[id].meta["sme"]
 
