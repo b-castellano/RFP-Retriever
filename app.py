@@ -92,7 +92,7 @@ def main():
             if len(questions) == 1: ## Single question case
 
                 # Get response from rfp-retriever and assign 
-                response, prediction = ps.get_response(pipe,questions[0],history=st.session_state.responses)
+                response = ps.get_response(pipe,questions[0],history=st.session_state.responses)
                 output = response.answer
                 cids = response.cids
                 smes = response.smes
@@ -103,7 +103,7 @@ def main():
                 # st.session_state.responses.append(questions[0])
                 # st.session_state.responses.append(output)
 
-                st.session_state.responses.append({"question":questions[0],"answer":output,"docs":prediction})
+                st.session_state.responses.append({"question":questions[0],"answer":output})
 
                 # Write response
                 # response_slot.write(f

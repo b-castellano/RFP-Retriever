@@ -246,8 +246,7 @@ def create_prompt(query, prediction, history):
         """
         For externally hosted applications, MS Azure is a preferred Cloud Service Provider for Optum Behavioral Health. (CID55595)
         """
-        },
-        {"role": "user", "content": query},
+        }
     ]
 
     for pair in history:
@@ -255,8 +254,7 @@ def create_prompt(query, prediction, history):
         messages.append({"role": "user", "content": pair["question"]})
         messages.append({"role": "assistant", "content": pair["answer"]})
 
-    print("docs:", docs)
-
+    messages.append({"role": "user", "content": query})
     return messages, docs
     
 # Call openai API and compute confidence
