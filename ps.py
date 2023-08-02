@@ -96,7 +96,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     response = Response()
 
     # Get relevant response for question
-    response = get_response(pipe, question, lock)
+    response = get_response(pipe, question, lock=lock)
 
     # Remove empty strings in lists
     source_links_i = response.source_links
@@ -123,6 +123,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     num_complete.append(num_complete.pop() + 1)
     print("num_complete:", num_complete[0])
     lock.release()
+    progress_text = f"Questions being answered, please wait. ({num_complete[0]} / {len(questions)} complete)"
     progress_bar.progress((num_complete[0] / len(questions)), progress_text)
 
 # Get response for query
@@ -155,7 +156,7 @@ def get_response(pipe, query, lock=threading.Lock(), history=["N/A"]):
             answer, ids = func_timeout(20, call_gpt, args=(messages, foo))
         except FunctionTimedOut:
             print("Restarting GPT call")
-            return get_response(pipe, query, lock)
+            return get_response(pipe, query, lock=lock)
 
         response = get_info(prediction, docs, ids)
         response.answer = simplify_answer(query, answer)
@@ -249,10 +250,13 @@ def create_prompt(query, prediction, history):
         }
     ]
 
+    if len(history) > 10:
+        history = history[-10:]
     for pair in history:
         print(pair)
-        messages.append({"role": "user", "content": pair["question"]})
-        messages.append({"role": "assistant", "content": pair["answer"]})
+        if type(pair) == list:
+            messages.append({"role": "user", "content": pair["question"]})
+            messages.append({"role": "assistant", "content": pair["answer"]})
 
     messages.append({"role": "user", "content": query})
     return messages, docs

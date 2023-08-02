@@ -156,7 +156,7 @@ def main():
                     
                 # Progress bar
                 num_complete = [0]
-                progress_text = "Questions being answered, please wait."
+                progress_text = f"Questions being answered, please wait. ({num_complete[0]} / {len(questions)} complete)"
                 progress_bar = st.progress((num_complete[0] / len(questions)), text=progress_text)
 
                 # Thread creation
