@@ -2,7 +2,7 @@ altair
 datasets
 langchain
 PyPDF2
-streamlit
+streamlit==1.23.1
 faiss-cpu
 streamlit-extras
 watchdog

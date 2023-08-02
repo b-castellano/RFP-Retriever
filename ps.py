@@ -95,7 +95,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     question = questions[i]
     response = Response()
 
-    # Get relavent response for question
+    # Get relevant response for question
     response = get_response(pipe, question, lock)
 
     # Remove empty strings in lists
@@ -108,7 +108,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     if source_filenames_i is None:
         source_filenames_i = [["N/A"]]
 
-    # Feed prompt into gpt, store query & output in session state for threads
+    # Output response to session state
     lock.acquire()
     answers[i] = response.answer
     cids[i] = response.cids
@@ -117,6 +117,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     confidences[i] = response.conf
     lock.release()
 
+    # Update the number of completed threads/questions and move progress bar
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
     lock.acquire()
     num_complete.append(num_complete.pop() + 1)
@@ -209,6 +210,7 @@ def create_prompt(query, prediction):
         
     system_prompt = prompt.format(prefix=prefix, question=query, context=context)
 
+    # Few-shot training examples
     messages=[
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": "Is company information backed up regularly?"},
@@ -298,19 +300,32 @@ def get_info(prediction, docs, ids):
 
     for id in ids:  ## If gpt found ids
         
-        # Get relavent data for returned ids
+        # Check if a CID given by gpt is invalid (not real)
+        try:
+            docs[id]
+
+        # If so, skip it
+        except:
+            continue
+
+        # Get relevant data for returned ids
         cids.append(docs[id].meta["cid"])
         source_links.append(docs[id].meta["url"])
         smes.append(docs[id].meta["sme"])
         docs_used[docs[id].meta["cid"]] = docs[id]
 
         # Find sme with highest confidence document
-        if best_score < docs_used[id].score:
+        if best_score < docs_used[id].score and docs_used[id].meta["sme"] != "":
             best_sme = docs_used[id].meta["sme"]
 
+
     # Get average confidence score for used documents
-    conf = utils.compute_average_score(docs_used)
-    conf = f"{round(conf,2)}%"
+    if len(docs_used) == 0:
+        conf = 0
+    
+    else:
+        conf = utils.compute_average_score(docs_used)
+        conf = f"{round(conf,2)}%"
     
     # Populate response object with info
     response.conf = conf

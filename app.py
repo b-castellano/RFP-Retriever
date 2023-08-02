@@ -48,6 +48,9 @@ def main():
     # Initialize pipline
     pipe = ps.init()
 
+    ### Setup session storage
+    st.session_state.responses = []
+
     # Init UI Header/File Upload
     st.header("Ask a Question:")
     file_upload = st.checkbox("Upload questions from file")
@@ -103,8 +106,14 @@ def main():
                 st.session_state.responses.append(output)
 
                 # Write response
-                response_header_slot.markdown(f"**Answer:**\n")
-                response_slot.write(f"```\n{output}\n```")  
+                # response_slot.write(f
+                # '''
+                # **Answer:**
+
+                #     {output}
+                # ''')  
+                response_header_slot.markdown(f"**Answer:**")
+                response_slot.write(f"<code>\n{output}\n</code>", unsafe_allow_html=True)
 
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(f"**Confidence Score:** {response.conf}")
@@ -142,7 +151,7 @@ def main():
                 for i, question in enumerate(questions):
                     with lock:
 
-                        # Append empty strings and lists to answers, CIDs, source_links, source_filenames, and SMEs
+                        # Append empty strings and lists to answers, cids, source_links, source_filenames, and SMEs
                         answers.append("")
                         cids.append([])
                         source_links.append([])
@@ -156,8 +165,12 @@ def main():
 
                 # Thread creation
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+
+                    # Schedule a thread for each question in the sheet
                     for i, question in enumerate(questions):
                         threads.append(executor.submit(ps.get_responses, pipe, questions, answers, cids, source_links,  best_smes, confidences, i, lock, num_complete, progress_text, progress_bar))
+                        
+                        # Enable multi-threading for Streamlit, used for progress bar
                         for thread in executor._threads:
                             add_script_run_ctx(thread)
 
