@@ -119,19 +119,23 @@ def to_hyperlink(df, cids):
         links = df["Source Links"].iloc[n]
         k = 0
         for link in links:
+            # Convert links into hyperlinks for excel format
             links[k] = f'=HYPERLINK("{link}", "{cid[k]}")'
+            # Creat dictionary to track which links go into which columns
             if cols.get(k) != None:
                 cols[k].append(links[k])
             else:
                 cols[k] = [links[k]]
             k += 1
+        # If column list is not long enough append with None
         while k <= 4:
             cols[k].append('None')
-            print(cols[k])
             k += 1
         n += 1
+    # Insert column lists from dictionary into columns for excel
     for col in range(len(cols.keys())):
         df.insert(4 + col, f'Link {col}', cols[col], False)
+    # Drop the source links column
     df.drop(df.columns[9], axis=1, inplace=True)
     return df
 
