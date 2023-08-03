@@ -84,6 +84,9 @@ def main():
     email_header = st.empty()
     email_content = st.empty()
 
+    with open ('style.css') as f:
+        st.markdown(f'<style>{f.read}</style>', unsafe_allow_html=True)
+
     if query or submitted: ## If user submits a question
         try:
             if query.strip() != "":  ## Check for empty user query

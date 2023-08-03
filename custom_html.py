@@ -22,5 +22,11 @@ def custom_response(output):
 
     """
 
+# <script type="text/javascript">
+#                 function showCopyButton(){{
 
+#                     document.querySelector('css-chk1w8 ecja3eu2').style.display = '';
+
+
+#                 }}
     
