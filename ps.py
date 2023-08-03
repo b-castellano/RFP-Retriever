@@ -156,7 +156,7 @@ def get_response(pipe, query, lock=threading.Lock(), history=["N/A"], retries=0)
             answer, ids = func_timeout(10, call_gpt, args=(messages, foo))
         except FunctionTimedOut:
             if retries == 3:
-                print("GPT call failed")
+                print(f"GPT call failed on the following question: {query}")
                 response.answer = "GPT call failed"
                 return response
 
