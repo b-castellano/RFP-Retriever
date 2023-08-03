@@ -12,7 +12,7 @@ import utils
 from func_timeout import func_timeout, FunctionTimedOut
 from response import Response
 
-import app
+import Upload
 
 def init():
     # Initialize document store
@@ -91,6 +91,7 @@ def write_docs(document_store, retriever):
 
 # Get responses
 def get_responses(pipe, questions, answers, cids, source_links, best_smes, confidences, i, lock, num_complete, progress_text, progress_bar):
+
     print(f"Running question {i + 1}")
     question = questions[i]
     response = Response()
