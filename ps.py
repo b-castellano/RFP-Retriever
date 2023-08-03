@@ -127,7 +127,7 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     progress_bar.progress((num_complete[0] / len(questions)), progress_text)
 
 # Get response for query
-def get_response(pipe, query, lock=threading.Lock(), history=["N/A"]):
+def get_response(pipe, query, lock=threading.Lock(), history=["N/A"], retries=0):
     lock.acquire()
 
     prediction, closeMatch = query_faiss(query, pipe)
@@ -153,10 +153,15 @@ def get_response(pipe, query, lock=threading.Lock(), history=["N/A"]):
         lock.release()
         try:
             foo = "foo"
-            answer, ids = func_timeout(20, call_gpt, args=(messages, foo))
+            answer, ids = func_timeout(10, call_gpt, args=(messages, foo))
         except FunctionTimedOut:
+            if retries == 3:
+                print(f"GPT call failed on the following question: {query}")
+                response.answer = "GPT call failed"
+                return response
+
             print("Restarting GPT call")
-            return get_response(pipe, query, lock=lock)
+            return get_response(pipe, query, lock=lock, retries=(retries + 1))
 
         response = get_info(prediction, docs, ids)
         response.answer = simplify_answer(query, answer)
