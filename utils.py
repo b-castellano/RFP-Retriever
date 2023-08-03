@@ -79,25 +79,12 @@ def to_excel(df, rows):
     worksheet.set_column('A:A', None, format1)
     n = 0
     for row in rows:
-        for column in range(5):
+        for column in range(df.shape[1]):
             worksheet.write(row.name, column, str(df.iloc[n,column]))
         n += 1
     writer.close()
     processed_data = output.getvalue()
     return processed_data
-
-# Formats excel sheet to not consider original rows --> NOT IN USE
-# def to_excel_no_format(df):
-#     output = BytesIO()
-#     writer = pd.ExcelWriter(output, engine='xlsxwriter')
-#     df.to_excel(writer, index=None, sheet_name='Sheet1')
-#     workbook = writer.book
-#     worksheet = writer.sheets['Sheet1']
-#     format1 = workbook.add_format({'num_format': '0.00'}) 
-#     worksheet.set_column('A:A', None, format1)
-#     writer.close()
-#     processed_data = output.getvalue()
-#     return processed_data
 
 # Compare dates
 def getMostRecentDate(x, y):
@@ -122,6 +109,30 @@ def to_html(df, cids):
             k += 1
         df["Source Links"].iloc[n] = links
         n += 1
+    return df
+
+# Convert links to hyperlinks for excel sheet
+def to_hyperlink(df, cids):
+    cols = {}
+    n = 0
+    for cid in cids:
+        links = df["Source Links"].iloc[n]
+        k = 0
+        for link in links:
+            links[k] = f'=HYPERLINK("{link}", "{cid[k]}")'
+            if cols.get(k) != None:
+                cols[k].append(links[k])
+            else:
+                cols[k] = [links[k]]
+            k += 1
+        while k <= 4:
+            cols[k].append('None')
+            print(cols[k])
+            k += 1
+        n += 1
+    for col in range(len(cols.keys())):
+        df.insert(4 + col, f'Link {col}', cols[col], False)
+    df.drop(df.columns[9], axis=1, inplace=True)
     return df
 
 def get_email_text(query, best_sme):
