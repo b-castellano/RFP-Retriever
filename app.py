@@ -14,6 +14,7 @@ from bokeh.models import CustomJS
 import concurrent.futures
 from custom_html import custom_response
 
+
 # External Files
 import utils
 import ps
@@ -23,6 +24,7 @@ from response import Response
 import streamlit as st
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit.runtime.scriptrunner import add_script_run_ctx
+from streamlit.components.v1 import html
 
 # Warning filter
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
@@ -84,9 +86,32 @@ def main():
     email_header = st.empty()
     email_content = st.empty()
 
-    with open ('style.css') as f:
-        st.markdown(f'<style>{f.read}</style>', unsafe_allow_html=True)
+    html(
+        """
+        <script type="text/javascript"> 
 
+            let button = document.getElementById("copy-input")
+            let text = document.getElementById("text")
+            console.log("hello")
+            
+            button.addEventListener('click', ()=> {
+                copyInput = text.getAttribute("data-clipboard-text")
+                
+                copyToClip(copyInput)
+
+            }
+
+
+            function copyToClip(txt) {
+                navigator.clipboard.writeText(txt);
+            }
+            
+        
+        </script>
+        
+        """
+    )
+ 
     if query or submitted: ## If user submits a question
         try:
             if query.strip() != "":  ## Check for empty user query
@@ -111,9 +136,9 @@ def main():
                 # Write response
                
                 response_header_slot.markdown(f"**Answer:**")
-            #  f""<code>\n{output}\n</code>
+            #  
                 response_slot.write(custom_response(output), unsafe_allow_html=True)
-
+# custom_response(output)
 
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(f"**Confidence Score:** {response.conf}")

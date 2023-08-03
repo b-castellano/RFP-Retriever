@@ -135,8 +135,8 @@ def get_response(pipe, query, lock=threading.Lock(), history=["N/A"]):
 
     # If a close match was found, just return that answer
     if closeMatch:
-        answer = prediction.meta["answer"].split(",")
-        response.answer = simplify_answer(query, re.sub("[\[\]'\"]", "", answer[0]))
+        answer = prediction.meta["answer"]
+        response.answer = simplify_answer(query, re.sub(r"[\[\]'\"]", "", answer))
         response.conf = f"{round((prediction.score * 100),2)}%"
         response.cids = [prediction.meta["cid"]]
         response.source_links = [prediction.meta["url"]]
@@ -346,15 +346,27 @@ def get_info(prediction, docs, ids):
 def simplify_answer(query, answer):
     query = query.strip()
     answer = answer.strip()
+    firstAnswerWord = answer.split(" ")[0]
+    firstQueryWord = query.split(" ")[0]
+  
+    
+    # If not a Yes/No question, provide the entire response with description
+    if query[len(query) -1] != "?" and re.search(r"([Ii]s)|(Does)|(Do)", firstQueryWord) is None:
 
-    if (query[len(query) -1] != "?"):
         return answer
 
     else:
-        firstWord = answer.split(" ")[0]
-        if re.search(r"([Yy]es)", firstWord) is not None:
+        # If explanation is requested, provide entire response
+        if re.search(r"([Ee]xplain)|([Dd]escribe)", query) is not None:
+
+            return answer
+        
+        # Else, output Yes or No depending on response
+        elif re.search(r"([Yy]es)", firstAnswerWord) is not None:
+
             return "Yes."
-        elif re.search(r"([Nn]o)", firstWord) is not None:
+
+        elif re.search(r"([Nn]o)", firstAnswerWord) is not None:
             return "No."
         else:
             return answer
