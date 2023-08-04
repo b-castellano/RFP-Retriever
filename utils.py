@@ -1,9 +1,10 @@
 import pandas as pd
 import datetime
-from openpyxl import load_workbook
+#from openpyxl import load_workbook
 from io import BytesIO
-import openpyxl
-import pytz
+#import openpyxl
+#import pytz
+import re
 
 # Compute average of pulled CID confidence scores
 def compute_average_score(docs):
@@ -88,6 +89,7 @@ def to_excel(df, rows):
 
 # Compare dates
 def getMostRecentDate(x, y):
+
     # Convert strings to datetime objects
     date_x = datetime.strptime(x, "%Y-%m-%d %H:%M:%S %z")
     date_y = datetime.strptime(y, "%Y-%m-%d %H:%M:%S %z")
@@ -116,28 +118,50 @@ def to_hyperlink(df, cids):
     cols = {}
     n = 0
     for cid in cids:
-        links = df["Source Links"].iloc[n]
+        links = df["Source Links"].iloc[n] ## Get relavent links for row
         k = 0
         for link in links:
             # Convert links into hyperlinks for excel format
             links[k] = f'=HYPERLINK("{link}", "{cid[k]}")'
-            # Creat dictionary to track which links go into which columns
+
+            # Create a dictionary to track which links go into which columns
             if cols.get(k) != None:
                 cols[k].append(links[k])
             else:
                 cols[k] = [links[k]]
             k += 1
-        # If column list is not long enough append with None
+
+        # If column list is not long enough to fit append with '-'
         while k <= 4:
-            cols[k].append('None')
+            if cols.get(k) != None:
+                cols[k].append('-')
+            else:
+                cols[k] = ['-']
             k += 1
         n += 1
+
     # Insert column lists from dictionary into columns for excel
     for col in range(len(cols.keys())):
         df.insert(4 + col, f'Link {col}', cols[col], False)
+
     # Drop the source links column
     df.drop(df.columns[9], axis=1, inplace=True)
     return df
+
+# Get relevant SMEs for unanswered questions
+def get_SMEs(df):
+    unanswered = {}
+    for i, row in df.iterrows():
+
+        # If answer contains key word
+        if re.search (r"context", df["Answer"][i]) is not None:
+            
+            # Add relavant SME to dictionary with questions
+            if unanswered.get(df["SMEs"][i]) != None:
+                unanswered[df["SMEs"][i]].append(f'Question {i}: {df["Question"][i]}')
+            else:
+                unanswered[df["SMEs"][i]] = [f'Question {i}: {df["Question"][i]}']
+    return unanswered
 
 def get_email_text(query, best_sme):
 

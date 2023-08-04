@@ -120,6 +120,7 @@ def main():
         
         """
     )
+
     if query and isinstance(query, str) or submitted: ## If user submits a question
         try:
             if isinstance(query, str) and query.strip() != "":  ## Check for empty user query
@@ -236,6 +237,7 @@ def main():
                 # Create dataframe for display
                 df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_smes, "Source Links": source_links})
                 st.session_state.data.append(df)
+                # Second dataframe for hyper links on excel <-- Weird issues with html and hyper dataframes merging together
                 df_2 = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_smes, "Source Links": source_links})
                 sources_slot.write(df)
                 

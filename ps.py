@@ -1,3 +1,4 @@
+# General
 import openai
 import pandas as pd
 import re
@@ -8,10 +9,10 @@ from haystack.nodes import EmbeddingRetriever
 from haystack.pipelines import FAQPipeline
 from langchain.prompts import PromptTemplate
 import utils
-
 from func_timeout import func_timeout, FunctionTimedOut
-from response import Response
 
+# External Files
+from response import Response
 import Upload
 
 def init():
@@ -120,10 +121,12 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
 
     # Update the number of completed threads/questions and move progress bar
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
+
     lock.acquire()
     num_complete.append(num_complete.pop() + 1)
     print("num_complete:", num_complete[0])
     lock.release()
+
     progress_text = f"Questions being answered, please wait. ({num_complete[0]} / {len(questions)} complete)"
     progress_bar.progress((num_complete[0] / len(questions)), progress_text)
 
@@ -149,9 +152,9 @@ def get_response(pipe, query, lock=threading.Lock(), history=["N/A"], retries=0)
 
     # No close match, so generate prompt from related docs
     else:
-    
         messages, docs = create_prompt(query, prediction, history)
         lock.release()
+
         try:
             foo = "foo"
             answer, ids = func_timeout(10, call_gpt, args=(messages, foo))
@@ -159,6 +162,12 @@ def get_response(pipe, query, lock=threading.Lock(), history=["N/A"], retries=0)
             if retries == 3:
                 print(f"GPT call failed on the following question: {query}")
                 response.answer = "GPT call failed"
+                response.conf = "0%"
+                response.cids = ["N/A"]
+                response.source_links = ["N/A"]
+                response.source_filenames = ["N/A"]
+                response.smes = ["N/A"]
+                response.best_sme = "N/A"
                 return response
 
             print("Restarting GPT call")
@@ -188,7 +197,6 @@ def query_faiss(query, pipe):
         
 # Create prompt template
 def create_prompt(query, prediction, history):
-
     print("Creating prompt")
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
@@ -258,8 +266,8 @@ def create_prompt(query, prediction, history):
 
     if len(history) > 10:
         history = history[-10:]
+
     for pair in history:
-        print(pair)
         if type(pair) == list:
             messages.append({"role": "user", "content": pair["question"]})
             messages.append({"role": "assistant", "content": pair["answer"]})
@@ -305,19 +313,15 @@ def get_info(prediction, docs, ids):
         for answer in prediction["answers"]:
             ids.append(answer.meta["cid"])
         
-    
     ids = list(set(ids)) ## Remove duplicates in found ids
     best_score = 0
     best_sme = "Not Found"
 
     for id in ids:  ## If gpt found ids
         
-        # Check if a CID given by gpt is invalid (not real)
-        try:
+        try: ## Check if a CID given by gpt is invalid (not real)
             docs[id]
-
-        # If so, skip it
-        except:
+        except: ## If so, skip it
             continue
 
         # Get relevant data for returned ids
@@ -334,7 +338,6 @@ def get_info(prediction, docs, ids):
     # Get average confidence score for used documents
     if len(docs_used) == 0:
         conf = 0
-    
     else:
         conf = utils.compute_average_score(docs_used)
         conf = f"{round(conf,2)}%"
@@ -348,30 +351,25 @@ def get_info(prediction, docs, ids):
 
     return response
 
-    # Searches answer for yes or no response and outputs that for simplified answer
+# Searches answer for yes or no response and outputs that for simplified answer
 def simplify_answer(query, answer):
+    # Clean up questions and answer
     query = query.strip()
     answer = answer.strip()
     firstAnswerWord = answer.split(" ")[0]
     firstQueryWord = query.split(" ")[0]
   
-    
     # If not a Yes/No question, provide the entire response with description
     if query[len(query) -1] != "?" and re.search(r"([Ii]s)|(Does)|(Do)", firstQueryWord) is None:
-
         return answer
-
     else:
         # If explanation is requested, provide entire response
         if re.search(r"([Ee]xplain)|([Dd]escribe)", query) is not None:
-
             return answer
         
         # Else, output Yes or No depending on response
         elif re.search(r"([Yy]es)", firstAnswerWord) is not None:
-
             return "Yes."
-
         elif re.search(r"([Nn]o)", firstAnswerWord) is not None:
             return "No."
         else:
