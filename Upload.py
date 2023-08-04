@@ -10,9 +10,9 @@ import traceback
 import pyperclip as pc
 import threading
 from bokeh.models import Button, CustomJS
-import fontawesome as fa
 import concurrent.futures
-import time
+from custom_html import custom_response
+
 
 # External Files
 import utils
@@ -23,6 +23,7 @@ from response import Response
 import streamlit as st
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit.runtime.scriptrunner import add_script_run_ctx
+from streamlit.components.v1 import html
 
 # Warning filter
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
@@ -51,7 +52,8 @@ def main():
     pipe = ps.init()
 
     ### Setup session storage
-    st.session_state.responses = []
+    if "responses" not in st.session_state:
+        st.session_state.responses = []
 
     # Init UI Header/File Upload
     st.header("Ask a Question:")
@@ -93,7 +95,31 @@ def main():
     draft_email = st.empty()
     email_header = st.empty()
     email_content = st.empty()
+    html(
+        """
+        <script type="text/javascript"> 
 
+            let button = document.getElementById("copy-input")
+            let text = document.getElementById("text")
+            console.log("hello")
+            
+            button.addEventListener('click', ()=> {
+                copyInput = text.getAttribute("data-clipboard-text")
+                
+                copyToClip(copyInput)
+
+            }
+
+
+            function copyToClip(txt) {
+                navigator.clipboard.writeText(txt);
+            }
+            
+        
+        </script>
+        
+        """
+    )
     if query and isinstance(query, str) or submitted: ## If user submits a question
         try:
             if isinstance(query, str) and query.strip() != "":  ## Check for empty user query
@@ -102,7 +128,7 @@ def main():
 
             if len(questions) == 1: ## Single question case
                 # Get response from rfp-retriever and assign 
-                response = ps.get_response(pipe,questions[0])
+                response = ps.get_response(pipe,questions[0],history=st.session_state.responses)
                 output = response.answer
                 cids = response.cids
                 smes = response.smes
@@ -110,8 +136,10 @@ def main():
                 best_sme = response.best_sme
 
                 # Add query and output to front end
-                st.session_state.responses.append(questions[0])
-                st.session_state.responses.append(output)
+                # st.session_state.responses.append(questions[0])
+                # st.session_state.responses.append(output)
+
+                st.session_state.responses.append({"question":questions[0],"answer":output})
 
                 # Write response
                 # response_slot.write(f
@@ -122,7 +150,9 @@ def main():
                 # ''')
 
                 response_header_slot.markdown(f"**Answer:**")
-                response_slot.write(f"<code>\n{output}\n</code>", unsafe_allow_html=True)
+              
+                response_slot.write(custom_response(output), unsafe_allow_html=True)
+                # custom_response(output)
 
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(f"**Confidence Score:** {response.conf}")
@@ -139,11 +169,11 @@ def main():
                 best_sme_slot.markdown(f"**SME:** {best_sme} ")
 
                 # Write drafted email
-                with draft_email.expander('Draft an email to the SME'):
-                    if draft_email.expander:
-                        email_text = utils.get_email_text(query, best_sme)
-                        email_header.markdown("### Email to SME:")
-                        email_content.write(email_text)
+                # draft_email.expander('Draft an email to the SME')
+                # if draft_email.expander:
+                #     email_text = utils.get_email_text(query, best_sme)
+                #     email_header.markdown("### Email to SME:")
+                #     email_content.write(email_text)
                 questions.clear()
 
             elif len(questions) > 1: # Multiple questions case
@@ -172,7 +202,7 @@ def main():
                     
                 # Progress bar
                 num_complete = [0]
-                progress_text = "Questions being answered, please wait."
+                progress_text = f"Questions being answered, please wait. ({num_complete[0]} / {len(questions)} complete)"
                 progress_bar = st.progress((num_complete[0] / len(questions)), text=progress_text)
 
                 # Stop button

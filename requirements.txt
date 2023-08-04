@@ -14,7 +14,6 @@ farm-haystack[faiss]
 farm-haystack[inference]
 pyperclip
 numpy
-threading
 openpyxl
 bokeh==2.4.3
 ### ^On my computer, had to run     $) pip3 install --force-reinstall --no-deps bokeh==2.4.3           specifically
