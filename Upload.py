@@ -10,9 +10,11 @@ import openai
 import traceback
 import pyperclip as pc
 import threading
-from bokeh.models import Button, CustomJS
+from bokeh.models.widgets import Button
+from bokeh.models import CustomJS
 import concurrent.futures
 from custom_html import custom_response
+
 
 
 # External Files
@@ -85,6 +87,7 @@ def main():
 
     response_header_slot = st.empty()
     response_slot = st.empty()
+    container = st.container()
     response_copy = st.empty()
 
     confidence_slot = st.empty()
@@ -102,7 +105,7 @@ def main():
         try:
             if isinstance(query, str) and query.strip() != "":  ## Check for empty user query
                 questions.append(query)
-                print("Appending?")
+                print("Appending")
 
             if len(questions) == 1: ## Single question case
                 # Get response from rfp-retriever and assign 
@@ -121,9 +124,8 @@ def main():
 
 
                 response_header_slot.markdown(f"**Answer:**")
-              
-                response_slot.write(custom_response(output), unsafe_allow_html=True)
-                # custom_response(output)
+                with container:
+                    custom_response(output)
 
                 # Display confidence, sources, SMEs
                 confidence_slot.markdown(f"**Confidence Score:** {response.conf}")
@@ -150,10 +152,11 @@ def main():
             elif len(questions) > 1: # Multiple questions case
                 print(f"\n\nQuestion length is: {len(questions)}\n\n")
                 st.session_state.submit = True
+                stop_button = st.empty()
 
                 # Initialize empty lists for answers, CIDs, source_links, SMEs, and confidences
                 answers, cids, source_links, best_smes, confidences = [], [], [], [], []
-                # Initiate variabels for multi-threading
+                # Initiate variables for multi-threading
                 lock = threading.Lock()
                 threads = []
                 stop_event = threading.Event()
@@ -170,40 +173,45 @@ def main():
                         source_links.append([])
                         best_smes.append([])
                         confidences.append(0)
-                    
+
                 # Progress bar
                 num_complete = [0]
-                progress_text = f"Questions being answered, please wait. ({num_complete[0]} / {len(questions)} complete)"
+                progress_text = f"Questions being answered. Please wait. ({num_complete[0]} / {len(questions)} complete)"
                 progress_bar = st.progress((num_complete[0] / len(questions)), text=progress_text)
 
-                # Stop button
-                # stop_button = Button(label="Stop Execution Early")
-                # stop_button.js_on_event("button_click", CustomJS(code="stop = True"))
-                # stop_button.css_classes = ["streamlit-button"]
-                # stop_button = st.expander("Stop execution early")
+                # # Stop button
+                # stop_button_clicked = stop_button.button("Stop Execution Early")
 
-               # Thread creation
+                # Thread creation
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                     # Schedule a thread for each question in the sheet
                     for i, question in enumerate(questions):
-                        threads.append(executor.submit(ps.get_responses, pipe, questions, answers, cids, source_links,  best_smes, confidences, i, lock, num_complete, progress_text, progress_bar))
-                
-                        # Enable multi-threading for Streamlit, used for progress bar
+                        threads.append(executor.submit(ps.get_responses, pipe, questions,
+                                                    answers, cids,
+                                                    source_links,
+                                                    best_smes,
+                                                    confidences,
+                                                    i,
+                                                    lock,
+                                                    num_complete,
+                                                    progress_text,
+                                                    progress_bar))
+
+                        # Enable multi-threading for Streamlit (used for progress bar)
                         for thread in executor._threads:
                             add_script_run_ctx(thread)
 
-                        # Check if the "Stop" button is clicked by the user
-                        # if stop_button:
+                        # Check if the "Stop" button is clicked by the user or if the expander is expanded
+                        # if stop_button_clicked:
                         #     with lock:
                         #         print("Stopping early")
                         #         print(answers)
-                        #         progress_text = "Halted Execution, current progress still downloadable"
+                        #         progress_text = "Halted Execution. Current progress still downloadable"
                         #     break
-                        
-                        # Check if the stop event is set due to early termination request
+
+                        # Check if the stop event is set due to an early termination request
                         if stop_event.is_set():
                             break
-
                 # Create dataframe for display
                 df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_smes, "Source Links": source_links})
                 st.session_state.data.append(df)
@@ -213,7 +221,7 @@ def main():
                 
                 # Copy button for only question, answer columns
                 copy_qa_button = Button(label="Copy Questions, Answers only")
-                df_copy = df.iloc[:, :2].to_csv(sep='\t') # Select first two columns and convert to CSV
+                df_copy = df.iloc[:, :2].to_csv(sep='\t')  # Select first two columns and convert to CSV
                 copy_qa_button.js_on_event("button_click", CustomJS(args=dict(df=df_copy), code=""" navigator.clipboard.writeText(df); """))
                 copy_qa_button.css_classes = ["streamlit-button"]
 
@@ -224,6 +232,8 @@ def main():
                     """))
                 copy_all_button.css_classes = ["streamlit-button"]
 
+                st.bokeh_chart(copy_qa_button)
+                st.bokeh_chart(copy_all_button)
                 # Create file and html table from dataframe and append to session state
                 hyper_df = utils.to_hyperlink(df_2, cids)
                 df_html = utils.to_html(df, cids)
