@@ -1,3 +1,4 @@
+# General
 import openai
 import pandas as pd
 import re
@@ -8,11 +9,11 @@ from haystack.nodes import EmbeddingRetriever
 from haystack.pipelines import FAQPipeline
 from langchain.prompts import PromptTemplate
 import utils
-
 from func_timeout import func_timeout, FunctionTimedOut
-from response import Response
 
-import app
+# External Files
+from response import Response
+import Upload
 
 def init():
     # Initialize document store
@@ -91,12 +92,13 @@ def write_docs(document_store, retriever):
 
 # Get responses
 def get_responses(pipe, questions, answers, cids, source_links, best_smes, confidences, i, lock, num_complete, progress_text, progress_bar):
+
     print(f"Running question {i + 1}")
     question = questions[i]
     response = Response()
 
     # Get relevant response for question
-    response = get_response(pipe, question, lock)
+    response = get_response(pipe, question, lock=lock)
 
     # Remove empty strings in lists
     source_links_i = response.source_links
@@ -119,14 +121,17 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
 
     # Update the number of completed threads/questions and move progress bar
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
+
     lock.acquire()
     num_complete.append(num_complete.pop() + 1)
     print("num_complete:", num_complete[0])
     lock.release()
+
+    progress_text = f"Questions being answered, please wait. ({num_complete[0]} / {len(questions)} complete)"
     progress_bar.progress((num_complete[0] / len(questions)), progress_text)
 
 # Get response for query
-def get_response(pipe, query, lock=threading.Lock()):
+def get_response(pipe, query, lock=threading.Lock(), history=["N/A"], retries=0):
     lock.acquire()
 
     prediction, closeMatch = query_faiss(query, pipe)
@@ -134,8 +139,8 @@ def get_response(pipe, query, lock=threading.Lock()):
 
     # If a close match was found, just return that answer
     if closeMatch:
-        answer = prediction.meta["answer"].split(",")
-        response.answer = simplify_answer(query, re.sub("[\[\]'\"]", "", answer[0]))
+        answer = prediction.meta["answer"]
+        response.answer = simplify_answer(query, re.sub(r"[\[\]'\"]", "", answer))
         response.conf = f"{round((prediction.score * 100),2)}%"
         response.cids = [prediction.meta["cid"]]
         response.source_links = [prediction.meta["url"]]
@@ -147,15 +152,26 @@ def get_response(pipe, query, lock=threading.Lock()):
 
     # No close match, so generate prompt from related docs
     else:
-    
-        messages, docs = create_prompt(query, prediction)
+        messages, docs = create_prompt(query, prediction, history)
         lock.release()
+
         try:
             foo = "foo"
-            answer, ids = func_timeout(20, call_gpt, args=(messages, foo))
+            answer, ids = func_timeout(10, call_gpt, args=(messages, foo))
         except FunctionTimedOut:
+            if retries == 3:
+                print(f"GPT call failed on the following question: {query}")
+                response.answer = "GPT call failed"
+                response.conf = "0%"
+                response.cids = ["N/A"]
+                response.source_links = ["N/A"]
+                response.source_filenames = ["N/A"]
+                response.smes = ["N/A"]
+                response.best_sme = "N/A"
+                return response
+
             print("Restarting GPT call")
-            return get_response(pipe, query, lock)
+            return get_response(pipe, query, lock=lock, retries=(retries + 1))
 
         response = get_info(prediction, docs, ids)
         response.answer = simplify_answer(query, answer)
@@ -180,8 +196,7 @@ def query_faiss(query, pipe):
         return docs, False
         
 # Create prompt template
-def create_prompt(query, prediction):
-
+def create_prompt(query, prediction, history):
     print("Creating prompt")
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
@@ -246,10 +261,18 @@ def create_prompt(query, prediction):
         """
         For externally hosted applications, MS Azure is a preferred Cloud Service Provider for Optum Behavioral Health. (CID55595)
         """
-        },
-        {"role": "user", "content": query},
+        }
     ]
 
+    if len(history) > 10:
+        history = history[-10:]
+
+    for pair in history:
+        if type(pair) == list:
+            messages.append({"role": "user", "content": pair["question"]})
+            messages.append({"role": "assistant", "content": pair["answer"]})
+
+    messages.append({"role": "user", "content": query})
     return messages, docs
     
 # Call openai API and compute confidence
@@ -275,10 +298,6 @@ def call_gpt(messages, foo):
     ids = list(set(ids))
     output = re.sub(r"\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
 
-    # Handle case where gpt doesn't output sources in prompt
-    if ids is None or len(ids) == 0:
-        return output, None
-
     return output, ids
 
 # Gets additional data for output
@@ -288,25 +307,21 @@ def get_info(prediction, docs, ids):
     docs_used = {}
 
     if ids == None or len(ids) == 0: # If gpt did not find ids
-
         ids = []
 
-        # Use all ids
+        # Use all ids to get information
         for answer in prediction["answers"]:
             ids.append(answer.meta["cid"])
         
-    
     ids = list(set(ids)) ## Remove duplicates in found ids
     best_score = 0
+    best_sme = "Not Found"
 
     for id in ids:  ## If gpt found ids
         
-        # Check if a CID given by gpt is invalid (not real)
-        try:
+        try: ## Check if a CID given by gpt is invalid (not real)
             docs[id]
-
-        # If so, skip it
-        except:
+        except: ## If so, skip it
             continue
 
         # Get relevant data for returned ids
@@ -325,7 +340,6 @@ def get_info(prediction, docs, ids):
     # Get average confidence score for used documents
     if len(docs_used) == 0:
         conf = 0
-    
     else:
         conf = utils.compute_average_score(docs_used)
         conf = f"{round(conf,2)}%"
@@ -339,19 +353,26 @@ def get_info(prediction, docs, ids):
 
     return response
 
- # Searches answer for yes or no response and outputs that for simplified answer
+# Searches answer for yes or no response and outputs that for simplified answer
 def simplify_answer(query, answer):
+    # Clean up questions and answer
     query = query.strip()
     answer = answer.strip()
-
-    if (query[len(query) -1] != "?"):
+    firstAnswerWord = answer.split(" ")[0]
+    firstQueryWord = query.split(" ")[0]
+  
+    # If not a Yes/No question, provide the entire response with description
+    if query[len(query) -1] != "?" and re.search(r"([Ii]s)|(Does)|(Do)", firstQueryWord) is None:
         return answer
-
     else:
-        firstWord = answer.split(" ")[0]
-        if re.search(r"([Yy]es)", firstWord) is not None:
+        # If explanation is requested, provide entire response
+        if re.search(r"([Ee]xplain)|([Dd]escribe)", query) is not None:
+            return answer
+        
+        # Else, output Yes or No depending on response
+        elif re.search(r"([Yy]es)", firstAnswerWord) is not None:
             return "Yes."
-        elif re.search(r"([Nn]o)", firstWord) is not None:
+        elif re.search(r"([Nn]o)", firstAnswerWord) is not None:
             return "No."
         else:
             return answer
