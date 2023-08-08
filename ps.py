@@ -15,6 +15,9 @@ from func_timeout import func_timeout, FunctionTimedOut
 from response import Response
 import Upload
 
+### GPT & faiss calling back-end functions
+
+
 def init():
     # Initialize document store
     document_store, loaded = init_store()

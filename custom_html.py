@@ -2,7 +2,8 @@ import streamlit as st
 import streamlit.components.v1 as com
 import math
 
-### This code was used for a display with a hover-induced copy button, but unfortunately does not adjust the height for dispaly properly.
+### This code sets the blue box & copy button in the single-response case for the front-end
+
 
 def helper(output):
     # Get number of pixels necessary to display 

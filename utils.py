@@ -1,10 +1,10 @@
 import pandas as pd
 import datetime
-#from openpyxl import load_workbook
 from io import BytesIO
-#import openpyxl
-#import pytz
 import re
+
+### General utility functions (generally standalone)
+
 
 # Compute average of pulled CID confidence scores
 def compute_average_score(docs):
