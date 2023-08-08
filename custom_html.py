@@ -9,7 +9,7 @@ def helper(output):
     # Get number of pixels necessary to display 
     num_char = len(output)
     num_lines = math.ceil(num_char/97)
-    h = num_lines * 18 + 30
+    h = num_lines * 20 + 30
     return com.html(
         f"""
         <div class="css-l3yxb1 ecja3eu1" style="background-color:rgba(218,246,250,255); border-radius: 8px; display:flex; margin-bottom:3% padding:15px;">
@@ -26,6 +26,7 @@ def helper(output):
         """,
         height=h
     )
+
 def custom_response(output):
     return f"""
     <style>
@@ -35,3 +36,4 @@ def custom_response(output):
     </style>
     {helper(output)}
     """
+
