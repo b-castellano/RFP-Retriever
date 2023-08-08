@@ -13,7 +13,6 @@ from func_timeout import func_timeout, FunctionTimedOut
 
 # External Files
 from response import Response
-import Upload
 
 def init():
     # Initialize document store
@@ -209,7 +208,8 @@ def create_prompt(query, prediction, history):
     
     prefix = """Assistant is a large language model designed by the Security Sages to answer questions for an Information Security enterprise professionally. 
     Provided is some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. 
-    Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced."""
+    Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced.
+    If you can't answer the question just say 'I'm sorry I cannot answer that question.'"""
 
     context = ""
     docs = {} # Used to get scores of prompts later on
@@ -260,6 +260,12 @@ def create_prompt(query, prediction, history):
         {"role": "assistant", "content": 
         """
         For externally hosted applications, MS Azure is a preferred Cloud Service Provider for Optum Behavioral Health. (CID55595)
+        """
+        },
+        {"role": "user", "content": "What does Optum think of Apple?"},
+        {"role": "assistant", "content": 
+        """
+        Sorry I cannot answer that question. (CID29004)
         """
         }
     ]
@@ -353,6 +359,7 @@ def get_info(prediction, docs, ids):
 
 # Searches answer for yes or no response and outputs that for simplified answer
 def simplify_answer(query, answer):
+    
     # Clean up questions and answer
     query = query.strip()
     answer = answer.strip()

@@ -15,15 +15,16 @@ try: ## Check for errors
 
         # Assign data variables from session state
         df = st.session_state.data[0]
-        df_html = st.session_state.data[1]
-        hyper_file = st.session_state.data[2]
+        file = st.session_state.data[1]
+        df_html = st.session_state.data[2]
+        hyper_file = st.session_state.data[3]
 
         # Download buttons UI
         col1, col2 = st.columns(2)
         with col1:
             st.download_button(label='Download Excel', data=hyper_file, file_name="text_2.xlsx")
         with col2:
-            st.download_button("Download CSV", data=df.to_csv(), file_name="test.csv", mime="txt/csv")
+            st.download_button("Download CSV", data=file, file_name="test.csv", mime="txt/csv")
         
         # Get unanswerd questions and SMEs
         SMEs = utils.get_SMEs(df)
@@ -42,7 +43,6 @@ try: ## Check for errors
 
         # Diplay dropdown of SMEs and relevant unanswered questions
         if SME != 'None':
-            print(len(SMEs[SME]))
             with st.expander(f'Unanswered Questions: {len(SMEs[SME])}'):
                 st.write(SMEs[SME])
 

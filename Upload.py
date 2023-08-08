@@ -255,9 +255,11 @@ def main():
                 copy_all_button.css_classes = ["streamlit-button"]
 
                 # Create file and html table from dataframe and append to session state
+                file = df.to_csv()
                 hyper_df = utils.to_hyperlink(df_2, cids)
                 df_html = utils.to_html(df, cids)
                 hyper_file = utils.to_excel(hyper_df, rows)
+                st.session_state.data.append(file)
                 st.session_state.data.append(df_html)
                 st.session_state.data.append(hyper_file)
 
