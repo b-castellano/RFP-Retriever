@@ -1,3 +1,5 @@
+# General
+from operator import index
 import openai
 import pandas as pd
 import re
@@ -8,38 +10,62 @@ from haystack.nodes import EmbeddingRetriever
 from haystack.pipelines import FAQPipeline
 from langchain.prompts import PromptTemplate
 import utils
-
 from func_timeout import func_timeout, FunctionTimedOut
+
+import sharepoint.sp_load as sp_load
+
+# External Files
 from response import Response
+import Upload
 
 def init():
     # Initialize document store
-    document_store, loaded = init_store()
+    rfp_store, sp_store, rfp_loaded, sp_loaded = init_stores()
 
-    # Initialize retriever
-    retriever = init_retriever(document_store)
+    # Initialize rfp retriever
+    rfp_retriever = init_retriever(rfp_store)
+
+    # Initialize sp retriever
+    sp_retriever = init_retriever(sp_store)
 
     # If new store, add documents and embeddings
-    if not loaded:
-        write_docs(document_store, retriever)
+    if not rfp_loaded:
+        write_rfp_docs(rfp_store, rfp_retriever)
+        
+    
+    if not sp_loaded:
+        write_sp_docs(rfp_store, sp_retriever)
     
     # Initialize GPT
     init_gpt()
 
     # Initialize pipeline for document search
-    return init_pipe(retriever)
+    return init_pipe(rfp_retriever), init_pipe(sp_retriever)
 
 # Initialize FAISS datastore
-def init_store():
+def init_stores():
     try:
-        return FAISSDocumentStore.load(index_path="my_faiss_index.faiss"), True
+        rfp_store = FAISSDocumentStore.load(index_path="my_faiss_index.faiss")
+        rfp_loaded = True
     except:
-        return FAISSDocumentStore(
+        rfp_store = FAISSDocumentStore(
             similarity="cosine",
             embedding_dim=768,
             duplicate_documents='overwrite'
-        ), False
-    
+        )
+        rfp_loaded = False
+    try:
+        sp_store = FAISSDocumentStore.load(index_path="sp_faiss_index.faiss")
+        sp_loaded = True
+    except:
+        sp_store = FAISSDocumentStore(
+            similarity="cosine",
+            embedding_dim=768,
+            duplicate_documents='overwrite'
+        )
+        sp_loaded = False
+    return rfp_store, sp_store, rfp_loaded, sp_loaded
+
 # Initialize retriever for documents in vector DB
 def init_retriever(document_store):
     return EmbeddingRetriever(
@@ -57,7 +83,6 @@ def init_gpt():
     if content is None:
         raise Exception("Error reading gpt-config")
 
-
     openai.api_key = content["api_key"]
     openai.api_type = content["api_type"] 
     openai.api_version = content["api_version"]
@@ -67,7 +92,8 @@ def init_gpt():
 def init_pipe(retriever):
     return FAQPipeline(retriever=retriever)
 
-def write_docs(document_store, retriever):
+# Add RFPIO data to VectorDB
+def write_rfp_docs(rfp_document_store, retriever):
     # Get dataframe with columns "question", "answer" and some custom metadata
     df = pd.read_csv("qna.csv")
     df.fillna(value="", inplace=True)
@@ -80,56 +106,66 @@ def write_docs(document_store, retriever):
 
     # Convert Dataframe to list of dicts and index them in our DocumentStore
     docs_to_index = df.to_dict(orient="records")
-    print("dictionaries:", len(docs_to_index))
-    document_store.write_documents(docs_to_index)
-    document_store.update_embeddings(retriever)
+    print("rfp documents:", len(docs_to_index))
+    rfp_document_store.write_documents(docs_to_index)
+    rfp_document_store.update_embeddings(retriever)
 
-    document_store.save(index_path="my_faiss_index.faiss")
-    print("docs added:", document_store.get_document_count())
-    print("docs embedded:", document_store.get_embedding_count())
+    rfp_document_store.save(index_path="my_faiss_index.faiss")
+    print("rfp docs added:", rfp_document_store.get_document_count())
+    print("rfp docs embedded:", rfp_document_store.get_embedding_count())
+
+# Add SharePoint data to VectorDB
+def write_sp_docs(sp_document_store, sp_retriever):
+
+    directory = r"/Users/dhoule5/OneDrive - UHG/EIS Artifacts/"
+
+    filenames = sp_load.getAllFileNames(directory)
+
+    sp_load.parseFilesAndEmbedDocuments(directory, filenames, sp_document_store, sp_retriever)
+
 
 # Get responses
-def get_responses(pipe, questions, answers, CIDs, source_links, source_filenames, best_SMEs, confidences, i, lock):
+def get_responses(pipe, questions, answers, cids, source_links, best_smes, confidences, i, lock, num_complete, progress_text, progress_bar):
+
     print(f"Running question {i + 1}")
     question = questions[i]
     response = Response()
 
-    # Get relavent response for question
-    response = get_response(pipe, question, lock)
+    # Get relevant response for question
+    response = get_response(pipe, question, lock=lock)
 
-    # Check if source links and source filenames are not lists
+    # Remove empty strings in lists
     source_links_i = response.source_links
     source_filenames_i = response.source_filenames
-    if type(source_links_i) == str:
-       source_links_i = [source_links_i]
-    if type(source_filenames_i) == str and source_filenames_i != None:
-        source_filenames_i = [source_filenames_i]
-
-    # source_links_i = list(filter(None, source_links_i))
+    source_links_i = list(filter(lambda x: x != '', source_links_i))
     if source_links_i is None:
         source_links_i = [["N/A"]]
-    # source_filenames_i = list(filter(None, source_filenames_i))
+    source_filenames_i = list(filter(lambda x: x != '', source_filenames_i))
     if source_filenames_i is None:
         source_filenames_i = [["N/A"]]
 
-    # Filter out None entries in lists
-    #source_links_i = list(filter(None, source_links_i))
-    #source_filenames_i = list(filter(None, source_filenames_i))
-
-    # Feed prompt into gpt, store query & output in session state for threads
+    # Output response to session state
     lock.acquire()
     answers[i] = response.answer
-    CIDs[i] = response.cids
+    cids[i] = response.cids
     source_links[i] = source_links_i
-    source_filenames[i] = source_filenames_i
-    best_SMEs[i] = response.best_sme
+    best_smes[i] = response.best_sme
     confidences[i] = response.conf
     lock.release()
 
+    # Update the number of completed threads/questions and move progress bar
     print(f"Thread {threading.get_ident()} finished processing question {i+1}")
 
+    lock.acquire()
+    num_complete.append(num_complete.pop() + 1)
+    print("num_complete:", num_complete[0])
+    lock.release()
+
+    progress_text = f"Questions being answered, please wait. ({num_complete[0]} / {len(questions)} complete)"
+    progress_bar.progress((num_complete[0] / len(questions)), progress_text)
+
 # Get response for query
-def get_response(pipe, query, lock):
+def get_response(pipe, query, lock=threading.Lock(), history=["N/A"], retries=0):
     lock.acquire()
 
     prediction, closeMatch = query_faiss(query, pipe)
@@ -137,12 +173,11 @@ def get_response(pipe, query, lock):
 
     # If a close match was found, just return that answer
     if closeMatch:
-        answer = prediction.meta["answer"].split(",")
-        response.answer = simplify_answer(query, re.sub("[\[\]'\"]","", answer[0]))
+        answer = prediction.meta["answer"]
+        response.answer = simplify_answer(query, re.sub(r"[\[\]'\"]", "", answer))
         response.conf = f"{round((prediction.score * 100),2)}%"
         response.cids = [prediction.meta["cid"]]
         response.source_links = [prediction.meta["url"]]
-        response.source_filenames = [prediction.meta["file name"]]
         response.smes = [prediction.meta["sme"]]
         response.best_sme = prediction.meta["sme"]
         lock.release()
@@ -151,18 +186,26 @@ def get_response(pipe, query, lock):
 
     # No close match, so generate prompt from related docs
     else:
-    
-        messages, docs = create_prompt(query, prediction)
+        messages, docs = create_prompt(query, prediction, history)
         lock.release()
-        try:
-            answer, ids = func_timeout(15, call_gpt,args=(messages))
-        except:
-            print("Restarting GPT call")
-            lock.release()
-            get_response(pipe, query, lock)
 
-        conf, CIDs, source_links, source_filenames, SMEs, best_sme = get_info(prediction, docs, ids)
-        conf = f"{round(conf,2)}%"
+        try:
+            foo = "foo"
+            answer, ids = func_timeout(10, call_gpt, args=(messages, foo))
+        except FunctionTimedOut:
+            if retries == 3:
+                print(f"GPT call failed on the following question: {query}")
+                response.answer = "GPT call failed"
+                response.conf = "0%"
+                response.cids = ["N/A"]
+                response.source_links = ["N/A"]
+                response.source_filenames = ["N/A"]
+                response.smes = ["N/A"]
+                response.best_sme = "N/A"
+                return response
+
+            print("Restarting GPT call")
+            return get_response(pipe, query, lock=lock, retries=(retries + 1))
 
         response = get_info(prediction, docs, ids)
         response.answer = simplify_answer(query, answer)
@@ -187,8 +230,7 @@ def query_faiss(query, pipe):
         return docs, False
         
 # Create prompt template
-def create_prompt(query, prediction):
-
+def create_prompt(query, prediction, history):
     print("Creating prompt")
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
@@ -206,7 +248,7 @@ def create_prompt(query, prediction):
     context = ""
     docs = {} # Used to get scores of prompts later on
     for answer in prediction["answers"]:
-        newAnswer = re.sub("[\[\]'\"]","",answer.meta["answer"])
+        newAnswer = re.sub(r"[\[\]'\"]","",answer.meta["answer"])
 
         # Remove docs 
         context += "Question ID: {ID}, Answer: {answer}\n".format(
@@ -217,6 +259,7 @@ def create_prompt(query, prediction):
         
     system_prompt = prompt.format(prefix=prefix, question=query, context=context)
 
+    # Few-shot training examples
     messages=[
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": "Is company information backed up regularly?"},
@@ -252,14 +295,22 @@ def create_prompt(query, prediction):
         """
         For externally hosted applications, MS Azure is a preferred Cloud Service Provider for Optum Behavioral Health. (CID55595)
         """
-        },
-        {"role": "user", "content": query},
+        }
     ]
 
+    if len(history) > 10:
+        history = history[-10:]
+
+    for pair in history:
+        if type(pair) == list:
+            messages.append({"role": "user", "content": pair["question"]})
+            messages.append({"role": "assistant", "content": pair["answer"]})
+
+    messages.append({"role": "user", "content": query})
     return messages, docs
     
 # Call openai API and compute confidence
-def call_gpt(messages):
+def call_gpt(messages, foo):
 
     deployment_id = "deployment-ae1a29d047eb4619a2b64fb755ae468f"
     response = openai.ChatCompletion.create(
@@ -274,85 +325,88 @@ def call_gpt(messages):
     )
     output = response['choices'][0]['message']['content']
 
-    # Extract CIDs from gpt output
-    ids = re.findall("CID\d+", output)
+    # Extract cids from gpt output
+    ids = re.findall(r"CID\d+", output)
 
-    # Clean up CIDs
+    # Clean up cids
     ids = list(set(ids))
-    output = re.sub("\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
-
-    # Handle case where gpt doesn't output sources in prompt
-    if ids is None or len(ids) == 0:
-        return output, None
+    output = re.sub(r"\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
 
     return output, ids
 
 # Gets additional data for output
 def get_info(prediction, docs, ids):
     response = Response()
-    CIDs, SMEs, source_filenames, source_links = [], [], [], []
+    cids, smes, source_links = [], [], []
     docs_used = {}
 
-    if ids == None: # If gpt did not find ids
+    if ids == None or len(ids) == 0: # If gpt did not find ids
+        ids = []
 
-        # Get relavent information for each document
+        # Use all ids to get information
         for answer in prediction["answers"]:
-            CIDs.append(answer.meta["cid"])
-            source_links.append(answer.meta["url"])
-            SMEs.append(answer.meta["sme"])
-            source_filenames.append(answer.meta["file name"])
-            docs_used[answer.meta["cid"]] = answer
-        best_sme = prediction["answers"][0].meta["sme"]
-
-        # Remove duplicates
-        CIDs = list(set(CIDs))
-        source_links = list(set(source_links))
-        SMEs = list(set(SMEs))
-        source_filenames = list(set(source_filenames))
+            ids.append(answer.meta["cid"])
         
-    else:
-        ids = list(set(ids)) ## Remove duplicates in found ids
-        best_score = 0
-        for id in ids:  ## If gpt found ids
-            
-            # Get relavent data for returned ids
-            CIDs.append(docs[id].meta["cid"])
-            source_links.append(docs[id].meta["url"])
-            SMEs.append(docs[id].meta["sme"])
-            source_filenames.append(docs[id].meta["file name"])
-            docs_used[docs[id].meta["cid"]] = docs[id]
+    ids = list(set(ids)) ## Remove duplicates in found ids
+    best_score = 0
+    best_sme = "Not Found"
 
-            # Find sme with highest confidence document
-            if best_score < docs_used[id].score:
-                best_sme = docs_used[id].meta["sme"]
+    for id in ids:  ## If gpt found ids
+        
+        try: ## Check if a CID given by gpt is invalid (not real)
+            docs[id]
+        except: ## If so, skip it
+            continue
+
+        # Get relevant data for returned ids
+        cids.append(docs[id].meta["cid"])
+        source_links.append(docs[id].meta["url"])
+        smes.append(docs[id].meta["sme"])
+        docs_used[docs[id].meta["cid"]] = docs[id]
+
+        # Find sme with highest confidence document
+        best_sme = "Not Found"
+        
+        if docs_used[id].score > best_score and docs_used[id].meta["sme"] != "":
+            best_sme = docs_used[id].meta["sme"]
+
 
     # Get average confidence score for used documents
-    conf = utils.compute_average_score(docs_used)
-    conf = f"{round(conf,2)}%"
+    if len(docs_used) == 0:
+        conf = 0
+    else:
+        conf = utils.compute_average_score(docs_used)
+        conf = f"{round(conf,2)}%"
     
     # Populate response object with info
     response.conf = conf
     response.best_sme = best_sme
-    response.cids = CIDs
+    response.cids = cids
     response.source_links = source_links
-    response.smes = SMEs
-    response.source_filenames = source_filenames
+    response.smes = smes
 
     return response
 
-    # Searches answer for yes or no response and outputs that for simplified answer
+# Searches answer for yes or no response and outputs that for simplified answer
 def simplify_answer(query, answer):
+    # Clean up questions and answer
     query = query.strip()
     answer = answer.strip()
-
-    if (query[len(query) -1] != "?"):
+    firstAnswerWord = answer.split(" ")[0]
+    firstQueryWord = query.split(" ")[0]
+  
+    # If not a Yes/No question, provide the entire response with description
+    if query[len(query) -1] != "?" and re.search(r"([Ii]s)|(Does)|(Do)", firstQueryWord) is None:
         return answer
-
     else:
-        firstWord = answer.split(" ")[0]
-        if re.search(r"([Yy]es)", firstWord) is not None:
+        # If explanation is requested, provide entire response
+        if re.search(r"([Ee]xplain)|([Dd]escribe)", query) is not None:
+            return answer
+        
+        # Else, output Yes or No depending on response
+        elif re.search(r"([Yy]es)", firstAnswerWord) is not None:
             return "Yes."
-        elif re.search(r"([Nn]o)", firstWord) is not None:
+        elif re.search(r"([Nn]o)", firstAnswerWord) is not None:
             return "No."
         else:
             return answer

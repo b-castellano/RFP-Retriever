@@ -1,9 +1,10 @@
 import pandas as pd
 import datetime
-from openpyxl import load_workbook
+#from openpyxl import load_workbook
 from io import BytesIO
-import openpyxl
-import pytz
+#import openpyxl
+#import pytz
+import re
 
 # Compute average of pulled CID confidence scores
 def compute_average_score(docs):
@@ -79,28 +80,16 @@ def to_excel(df, rows):
     worksheet.set_column('A:A', None, format1)
     n = 0
     for row in rows:
-        for column in range(5):
+        for column in range(df.shape[1]):
             worksheet.write(row.name, column, str(df.iloc[n,column]))
         n += 1
     writer.close()
     processed_data = output.getvalue()
     return processed_data
 
-# Formats excel sheet to not consider original rows --> NOT IN USE
-# def to_excel_no_format(df):
-#     output = BytesIO()
-#     writer = pd.ExcelWriter(output, engine='xlsxwriter')
-#     df.to_excel(writer, index=None, sheet_name='Sheet1')
-#     workbook = writer.book
-#     worksheet = writer.sheets['Sheet1']
-#     format1 = workbook.add_format({'num_format': '0.00'}) 
-#     worksheet.set_column('A:A', None, format1)
-#     writer.close()
-#     processed_data = output.getvalue()
-#     return processed_data
-
 # Compare dates
 def getMostRecentDate(x, y):
+
     # Convert strings to datetime objects
     date_x = datetime.strptime(x, "%Y-%m-%d %H:%M:%S %z")
     date_y = datetime.strptime(y, "%Y-%m-%d %H:%M:%S %z")
@@ -111,7 +100,69 @@ def getMostRecentDate(x, y):
     else:
         return date_y
 
-# def get_email_text(query, best_sme, email_header, email_content):
+# Convert dataframe to html table with hyperlinks
+def to_html(df, cids):
+    n = 0
+    for cid in cids:
+        links = df["Source Links"].iloc[n]
+        k = 0
+        for link in links:
+            links[k] = f'<a target="_blank" href="{link}">{cid[k]}</a>'
+            k += 1
+        df["Source Links"].iloc[n] = links
+        n += 1
+    return df
+
+# Convert links to hyperlinks for excel sheet
+def to_hyperlink(df, cids):
+    cols = {}
+    n = 0
+    for cid in cids:
+        links = df["Source Links"].iloc[n] ## Get relavent links for row
+        k = 0
+        for link in links:
+            # Convert links into hyperlinks for excel format
+            links[k] = f'=HYPERLINK("{link}", "{cid[k]}")'
+
+            # Create a dictionary to track which links go into which columns
+            if cols.get(k) != None:
+                cols[k].append(links[k])
+            else:
+                cols[k] = [links[k]]
+            k += 1
+
+        # If column list is not long enough to fit append with '-'
+        while k <= 4:
+            if cols.get(k) != None:
+                cols[k].append('-')
+            else:
+                cols[k] = ['-']
+            k += 1
+        n += 1
+
+    # Insert column lists from dictionary into columns for excel
+    for col in range(len(cols.keys())):
+        df.insert(4 + col, f'Link {col}', cols[col], False)
+
+    # Drop the source links column
+    df.drop(df.columns[9], axis=1, inplace=True)
+    return df
+
+# Get relevant SMEs for unanswered questions
+def get_SMEs(df):
+    unanswered = {}
+    for i, row in df.iterrows():
+
+        # If answer contains key word
+        if re.search (r"context", df["Answer"][i]) is not None:
+            
+            # Add relavant SME to dictionary with questions
+            if unanswered.get(df["SMEs"][i]) != None:
+                unanswered[df["SMEs"][i]].append(f'Question {i}: {df["Question"][i]}')
+            else:
+                unanswered[df["SMEs"][i]] = [f'Question {i}: {df["Question"][i]}']
+    return unanswered
+
 def get_email_text(query, best_sme):
 
     print("Drafting email...")

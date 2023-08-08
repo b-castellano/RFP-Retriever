@@ -1,4 +1,3 @@
-import pandas as pd
 from datasets import load_dataset
 import traceback
 import re
@@ -11,7 +10,11 @@ from haystack import Document
 from haystack.document_stores import FAISSDocumentStore
 from haystack.pipelines import FAQPipeline
 from haystack.utils import print_answers
+from haystack.pipelines import ExtractiveQAPipeline
+from haystack.nodes import FARMReader
 
+import sharepoint.sp_load as sp_load
+import rfpio.rfp_load as rfp_load
 
 import langchain
 from langchain.prompts import PromptTemplate
@@ -19,44 +22,45 @@ from langchain.prompts.few_shot import FewShotPromptTemplate
 
 def init():
     # Initialize document store
-    document_store, loaded = init_store()
+    rfp_store, rfp_loaded, sp_store, sp_loaded = init_stores()
 
-    # Initialize retriever
-    retriever = init_retriever(document_store)
+    # Initialize rfp retriever
+    rfp_retriever = init_retriever(rfp_store)
+
+    # Initialize sp retriever
+    sp_retriever = init_retriever(sp_store)
 
     # If new store, add documents and embeddings
-    if not loaded:
-        write_docs(document_store, retriever)
+
+    if not rfp_loaded:
+        write_rfp_docs(rfp_store, rfp_retriever)
+
+    
+    if not sp_loaded:
+        write_sp_docs(sp_store, sp_retriever)
     
     # Initialize GPT
     init_gpt()
 
     # Initialize pipeline for document search
-    return init_pipe(retriever)
+    return init_pipes(rfp_retriever,sp_retriever)
 
-def init_store():
-    try:
+# Initialize FAISS datastore
+def init_stores():
 
-        return FAISSDocumentStore.load(index_path="my_faiss_index.faiss"), True
-        
-    except:
-        return FAISSDocumentStore(
-            similarity="cosine",
-            embedding_dim=768,
-            duplicate_documents='overwrite'
-        ), False
+    rfp_store, rfp_loaded = rfp_load.init_store()
 
+    sp_store, sp_loaded = sp_load.init_store()
+
+    return rfp_store, rfp_loaded, sp_store, sp_loaded
+
+# Initialize retriever for documents in vector DB
 def init_retriever(document_store):
     return EmbeddingRetriever(
         document_store=document_store,
         embedding_model="flax-sentence-embeddings/all_datasets_v3_mpnet-base",
         model_format="sentence_transformers"
     )
-
-
-
-def init_pipe(retriever):
-    return FAQPipeline(retriever=retriever)
 
 # Initialize gpt configurations
 def init_gpt():
@@ -67,39 +71,45 @@ def init_gpt():
     if content is None:
         raise Exception("Error reading gpt-config")
 
-
     openai.api_key = content["api_key"]
     openai.api_type = content["api_type"] 
     openai.api_version = content["api_version"]
     openai.api_base = content["api_base"]
 
-def write_docs(document_store, retriever):
-    # Get dataframe with columns "question", "answer" and some custom metadata
-    df = pd.read_csv("qna.csv")
-    df.fillna(value="", inplace=True)
+# Initialize the pipeline
+def init_pipes(rfp_retriever, sp_retriever):
+    model_name_or_path = "deepset/roberta-base-squad2"
+    sp_reader = FARMReader(model_name_or_path, use_gpu=True)
 
-    # Create embeddings for our questions from the FAQs
-    questions = list(df["question"].values)
-    print("questions:", len(questions))
-    df["embedding"] = retriever.embed_queries(queries=questions).tolist()
-    df = df.rename(columns={"question": "content"})
+    return FAQPipeline(retriever=rfp_retriever), ExtractiveQAPipeline(reader=sp_reader, retriever=sp_retriever)
 
-    # Convert Dataframe to list of dicts and index them in our DocumentStore
-    docs_to_index = df.to_dict(orient="records")
-    print("dictionaries:", len(docs_to_index))
-    document_store.write_documents(docs_to_index)
-    document_store.update_embeddings(retriever)
-
-    document_store.save(index_path="my_faiss_index.faiss")
-    print("docs added:", document_store.get_document_count())
-    print("docs embedded:", document_store.get_embedding_count())
-
-def get_response(pipe, query):
+# Add RFPIO data to VectorDB
+def write_rfp_docs(rfp_document_store, retriever):
+    print("Writing RFPIO Documents...")
     
-    prediction, closeMatch = query_faiss(query, pipe)
+    rfp_load.parseQNAandEmbedDocuments(rfp_document_store, retriever)
+
+# Add SharePoint data to VectorDB
+def write_sp_docs(sp_document_store, sp_retriever):
+    print("Writing SharePoint Documents...")
+    directory = r"/Users/dhoule5/OneDrive - UHG/EIS Artifacts/"
+
+    filenames = sp_load.getAllFileNames(directory)
+
+    sp_load.parseFilesAndEmbedDocuments(directory, filenames, sp_document_store, sp_retriever)
+
+def get_response(rfp_pipe, sp_pipe, query):
+    
+    rfp_prediction, sp_prediction, closeMatch = query_faiss(query, rfp_pipe,sp_pipe)
 
     # If a close match was found (direct RFPIO document), just output that answer
     if closeMatch:
+
+        if rfp_prediction is None:
+            prediction = sp_prediction
+        else:
+            prediction = rfp_prediction
+
         answer = simplify_answer(query, re.sub(r"[\[\]'\"]","",prediction.meta["answer"]))
 
         score = prediction.score * 100
@@ -110,7 +120,7 @@ def get_response(pipe, query):
 
     # No close match, so generate prompt from related docs (call GPT)
     else:
-        prompt,scores, alts = create_prompt(query, prediction)
+        prompt,scores, alts = create_prompt(query, rfp_prediction, sp_prediction)
 
         # Feed prompt into gpt
         answer, score, sources = call_gpt(prompt, scores, alts)
@@ -120,39 +130,29 @@ def get_response(pipe, query):
         return f"{answer}\nConfidence Score: {score:.2f}%\nSources: \n{sources}"
 
 
-# Searches answer for yes or no response and outputs that for simplified answer
-def simplify_answer(query, answer):
-    query = query.strip()
-    answer = answer.strip()
-
-    if (query[len(query) -1] != "?"):
-        return answer
-
-    else:
-        firstWord = answer.split(" ")[0]
-        if re.search(r"([Yy]es)", firstWord) is not None:
-            return "Yes."
-        elif re.search(r"([Nn]o)", firstWord) is not None:
-            return "No."
-        else:
-            return answer
-
 
 # Get top k documents related to query from vector datastore
-def query_faiss(query, pipe):
-    docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
-
+def query_faiss(query, rfp_pipe, sp_pipe):
+    rfp_docs = rfp_pipe.run(query=query, params={"Retriever": {"top_k": 5}})
+    sp_docs = sp_pipe.run(query=query, params={"Retriever": {"top_k": 10}, "Reader": {"top_k": 5}})
+    for doc in sp_docs["answers"]:
+        print(f"=====================\n{doc.answer}, {doc.score}, {doc.meta['filename']}\n==================")
+        
     # If there is a close match (>=95% confidence) between user question and pulled doc, then just return that doc's answer
-    if docs["documents"][0].score >= .95:
-        return docs["documents"][0], True
+    if rfp_docs["documents"][0].score >= .95:
+        return rfp_docs["documents"][0],None, True
     
-    # No close match
+    elif sp_docs["answers"][0].score >= .95:
+        return None, sp_docs["answers"][0], True
+
+    # No close match, use all rfp and sharepoint docs
     else:
-        return docs, False
+
+        return rfp_docs, sp_docs, False
 
 
 # Create prompt template
-def create_prompt(query, prediction):
+def create_prompt(query, rfp_prediction, sp_prediction):
 
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
@@ -168,7 +168,7 @@ def create_prompt(query, prediction):
     count = 0
 
     
-    for answer in prediction["answers"]:
+    for answer in rfp_prediction["answers"]:
 
         newAnswer = re.sub(r"[\[\]'\"]","",answer.meta["answer"])
 
@@ -183,6 +183,15 @@ def create_prompt(query, prediction):
             
             alts.append(answer.meta["cid"])
             count+=1
+
+    for answer in sp_prediction["answers"]:
+
+        filename = answer.meta["filename"]
+        page = answer.meta["page"]
+        file_info = f"{filename}, Page {page}"
+
+        context += "Question ID: {info}, Answer: {answer}\n".format(
+            info=file_info, answer=answer.answer)
 
     system_prompt = prompt.format(prefix=prefix, question=query, context=context)
 
@@ -277,6 +286,24 @@ def call_gpt(messages,scores,alts):
 
     return output, score, sources
 
+# Searches answer for yes or no response and outputs that for simplified answer
+def simplify_answer(query, answer):
+    query = query.strip()
+    answer = answer.strip()
+
+    if (query[len(query) -1] != "?"):
+        return answer
+
+    else:
+        firstWord = answer.split(" ")[0]
+        if re.search(r"([Yy]es)", firstWord) is not None:
+            return "Yes."
+        elif re.search(r"([Nn]o)", firstWord) is not None:
+            return "No."
+        else:
+            return answer
+
+
 def compute_average(ids, scores):
     print(ids)
     print(scores)
@@ -299,7 +326,7 @@ def main():
     try:
 
         # Initialize FAISS store and create pipe instance
-        pipe= init()
+        rfp_pipe, sp_pipe = init()
 
         while(True):
             
@@ -309,11 +336,9 @@ def main():
             if query == "STOP":
                 break
 
-            output = get_response(pipe, query)
+            output = get_response(rfp_pipe, sp_pipe, query)
             print(f"OUTPUT:\n{output}")
         
-
-       
 
     except:
         
