@@ -14,6 +14,8 @@ from func_timeout import func_timeout, FunctionTimedOut
 # External Files
 from response import Response
 
+### GPT & faiss calling back-end functions
+
 def init():
     # Initialize document store
     document_store, loaded = init_store()
@@ -181,7 +183,6 @@ def get_response(pipe, query, lock=threading.Lock(), history=["N/A"], retries=0)
 
         return response
 
-
 # Get top k documents related to query from vector datastore
 def query_faiss(query, pipe):
     docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
@@ -337,9 +338,10 @@ def get_info(prediction, docs, ids):
         docs_used[docs[id].meta["cid"]] = docs[id]
 
         # Find sme with highest confidence document
-        if best_score < docs_used[id].score and docs_used[id].meta["sme"] != "":
+        best_sme = "Not Found"
+        
+        if docs_used[id].score > best_score and docs_used[id].meta["sme"] != "":
             best_sme = docs_used[id].meta["sme"]
-
 
     # Get average confidence score for used documents
     if len(docs_used) == 0:

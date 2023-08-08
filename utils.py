@@ -3,6 +3,8 @@ import datetime
 from io import BytesIO
 import re
 
+### General utility functions (generally standalone)
+
 # Compute average of pulled CID confidence scores
 def compute_average_score(docs):
     total = 0
@@ -68,22 +70,30 @@ def read_questions(file):
 
 # Format excel sheet considering original rows
 def to_excel(df, rows):
-    output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    output = BytesIO() ## Buffer for data collection
+    writer = pd.ExcelWriter(output, engine='xlsxwriter') ## Using xlsxwriter for excel writer
+
+    # Initialize a workbook with sheet and format headers
     workbook = writer.book
     worksheet = workbook.add_worksheet("Sheet1")
     worksheet = writer.sheets['Sheet1']
-    format = workbook.add_format({'bold': True}) 
+    format = workbook.add_format({'bold': True})
+
+    # Write headers
     title = ["Question", "Answer", "Confidence", "SME", "CIDs"]
-    n = 0
     k = 0
     for i in title:
         worksheet.write(0, k, i, format)
         k += 1
+    
+    # Fill rows with requried info
+    n = 0
     for row in rows:
         for column in range(df.shape[1]):
             worksheet.write(row.name + 1, column, str(df.iloc[n,column]))
         n += 1
+    
+    # Save and ouput values
     writer.close()
     processed_data = output.getvalue()
     return processed_data
@@ -108,7 +118,10 @@ def to_html(df, cids):
         links = df["Source Links"].iloc[n] ## Get relevant links
         k = 0
         for link in links:
-            links[k] = f'<a target="_blank" href="{link}">{cid[k]}</a>' ## Convert to html hyper links
+            # Extract links using regex (Mainly due to an issue with merging hyper and html dataframes)
+            link = re.search(r'".*",', link)
+            link = re.search(r'[^"].*[^",]', link.group(0))
+            links[k] = f'<a target="_blank" href="{link.group(0)}">{cid[k]}</a>' ## Convert to html hyper links
             k += 1
         df["Source Links"].iloc[n] = links ## Reinsert links
         n += 1

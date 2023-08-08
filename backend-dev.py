@@ -17,6 +17,9 @@ import langchain
 from langchain.prompts import PromptTemplate
 from langchain.prompts.few_shot import FewShotPromptTemplate
 
+### Helper functions, generally pertaining to queries themselves (back-end)
+
+
 def init():
     # Initialize document store
     document_store, loaded = init_store()
