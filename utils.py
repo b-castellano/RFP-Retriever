@@ -168,7 +168,7 @@ def get_SMEs(df):
     for i, row in df.iterrows():
 
         # If answer contains key word or key phrase
-        if re.search(r"sorry|Sorry", df["Answer"][i]) or re.search(r"(not|no)?.*?(not|no|contain|clear|provided|provide) (enough )?(information|context|answer)", df["Answer"][i]) or re.search(r"answer.*?(not clear|unclear)", df["Answer"][i]) or re.search(r"call failed", df["Answer"][i]) is not None:
+        if re.search(r"(not|no)?.*?(not|no|contain|clear|provided|provide|cannot|not specific) (enough |sufficient )?(information|context|answer|enough|find)", df["Answer"][i]) or re.search(r"answer.*?(not clear|unclear)", df["Answer"][i]) or re.search(r"GPT call failed", df["Answer"][i]) is not None:
             
             # Add relavant SME to dictionary with questions
             if unanswered.get(df["SMEs"][i]) != None:
