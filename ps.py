@@ -161,7 +161,7 @@ def get_response(rfp_pipe, sp_pipe, query, lock=threading.Lock(), history=["N/A"
 
     # No close match, so generate prompt from related docs
     else:
-        messages, docs = create_prompt(query, rfp_prediction, sp_prediction, history)
+        messages, rfp_docs, sp_docs = create_prompt(query, rfp_prediction, sp_prediction, history)
         lock.release()
 
         try:
@@ -182,7 +182,7 @@ def get_response(rfp_pipe, sp_pipe, query, lock=threading.Lock(), history=["N/A"
             print("Restarting GPT call")
             return get_response(rfp_pipe, sp_pipe, query, lock=lock, retries=(retries + 1))
 
-        response = get_info(rfp_prediction, sp_prediction, docs, ids)
+        response = get_info(rfp_prediction, sp_prediction, rfp_docs, sp_docs, ids)
         response.answer = simplify_answer(query, answer)
         
         # If confidence is under 75%, output it cannot answer question --> Disabled for debug purposes
@@ -222,22 +222,26 @@ def create_prompt(query, rfp_prediction, sp_prediction, history):
     If you can't answer the question just say 'I'm sorry I cannot answer that question.'"""
 
     context = ""
-    docs = {} # Used to get scores of prompts later on
-    for answer in rfp_prediction["answers"]:
-        newAnswer = re.sub(r"[\[\]'\"]","",answer.meta["answer"])
+     # Used to get scores of prompts later on
+    rfp_docs = {}
+    for doc in rfp_prediction["documents"]:
+        newDoc = re.sub(r"[\[\]'\"]","",doc.meta["answer"])
 
         # Add doc to context
         context += "Question ID: {ID}, Answer: {answer}\n".format(
-            ID=answer.meta["cid"], answer=newAnswer)
+            ID=doc.meta["cid"], answer=newDoc)
         
         # Add ID-Score pair to dict
-        docs[answer.meta["cid"]] = answer
+        rfp_docs[doc.meta["cid"]] = doc
 
-
+    sp_docs = {}
     for doc in sp_prediction["documents"]:
         answer = doc.content
+        filename = doc.meta["filename"].strip()
         context += "Question ID: {ID}, Answer: {answer}\n".format(
-            ID=doc.meta["filename"], answer=answer)
+            ID=filename, answer=answer)
+        
+        sp_docs[filename] = doc
 
         
     system_prompt = prompt.format(prefix=prefix, question=query, context=context)
@@ -296,7 +300,7 @@ def create_prompt(query, rfp_prediction, sp_prediction, history):
             messages.append({"role": "assistant", "content": pair["answer"]})
 
     messages.append({"role": "user", "content": query})
-    return messages, docs
+    return messages, rfp_docs, sp_docs
     
 # Call openai API and compute confidence
 def call_gpt(messages, foo):
@@ -312,21 +316,26 @@ def call_gpt(messages, foo):
         frequency_penalty=0.0,
         presence_penalty=0.0
     )
-    output = response['choices'][0]['message']['content']
-    print(output)
-    
-    # Extract cids from gpt output
-    ids = re.findall(r"CID\d+", output)
+    output = re.sub(r"(\n)|(\t)", "", response['choices'][0]['message']['content'])
+    print(repr(output))
 
-    # Extract sources and remove duplicates
+    # Extract cids from gpt output
+    index = output.rfind("(")
+    ids = output[index:].strip("()").split(",")
+
+    if index is not -1:
+        output = output[:index]
+    print(ids)
+
+
+    # Remove duplicates and clean response
     ids = list(set(ids))
     output = re.sub(r"\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
     
-
     return output, ids
 
 # Gets additional data for output
-def get_info(rfp_prediction, sp_prediction, docs, ids):
+def get_info(rfp_prediction, sp_prediction, rfp_docs, sp_docs, ids):
     response = Response()
     cids, smes, source_links = [], [], []
     docs_used = {}
@@ -343,22 +352,37 @@ def get_info(rfp_prediction, sp_prediction, docs, ids):
     best_sme = "Not Found"
 
     for id in ids:  
-        
-        try: ## Check if a CID given by gpt is invalid (not real)
-            docs[id]
-        except: ## If so, skip it
-            continue
+        id.strip()
 
-        # Get relevant data for returned ids
-        cids.append(docs[id].meta["cid"])
-        source_links.append(docs[id].meta["url"])
-        smes.append(docs[id].meta["sme"])
-        docs_used[docs[id].meta["cid"]] = docs[id]
+        if re.search(r"(CID\d+)", id):
+            try: ## Check if a CID given by gpt is invalid (not real)
+                rfp_docs[id]
+            except: ## If so, skip it
+                continue
+            # Get relevant data for returned ids
+            cids.append(rfp_docs[id].meta["cid"])
+            source_links.append(rfp_docs[id].meta["url"])
+            smes.append(rfp_docs[id].meta["sme"])
+            docs_used[rfp_docs[id].meta["cid"]] = rfp_docs[id]
 
-        # Find sme with highest confidence document
-        if docs_used[id].score > best_score and docs_used[id].meta["sme"] != "":
-            best_sme = docs_used[id].meta["sme"]
+            # Find sme with highest confidence document
+            if docs_used[id].score > best_score and docs_used[id].meta["sme"] != "":
+                best_sme = docs_used[id].meta["sme"]
 
+        else:
+            try: ## Check if a CID given by gpt is invalid (not real)
+                sp_docs[id]
+            except:
+                continue
+            # Get relevant data for returned ids
+            cids.append(sp_docs[id].meta["filename"]) # Not a CID, but fine for now to prevent bugs
+            source_links.append("N/A")
+            smes.append("N/A")
+            docs_used[sp_docs[id].meta["filename"]] = sp_docs[id]
+
+            # Find sme with highest confidence document
+            if docs_used[id].score > best_score and docs_used[id].meta["sme"] != "" or "N/A":
+                best_sme = docs_used[id].meta["sme"]
     # Get average confidence score for used documents
     if len(docs_used) == 0:
         conf = 0
