@@ -8,10 +8,12 @@ import json
 from haystack.document_stores import FAISSDocumentStore
 from haystack.nodes import EmbeddingRetriever
 from haystack.pipelines import FAQPipeline
+from haystack.pipelines import DocumentSearchPipeline
 from langchain.prompts import PromptTemplate
 import utils
 from func_timeout import func_timeout, FunctionTimedOut
 
+import rfpio.rfp_load as rfp_load
 import sharepoint.sp_load as sp_load
 
 # External Files
@@ -20,7 +22,7 @@ import Upload
 
 def init():
     # Initialize document store
-    rfp_store, sp_store, rfp_loaded, sp_loaded = init_stores()
+    rfp_store, rfp_loaded, sp_store, sp_loaded = init_stores()
 
     # Initialize rfp retriever
     rfp_retriever = init_retriever(rfp_store)
@@ -29,42 +31,28 @@ def init():
     sp_retriever = init_retriever(sp_store)
 
     # If new store, add documents and embeddings
+
     if not rfp_loaded:
         write_rfp_docs(rfp_store, rfp_retriever)
-        
+
     
     if not sp_loaded:
-        write_sp_docs(rfp_store, sp_retriever)
+        write_sp_docs(sp_store, sp_retriever)
     
     # Initialize GPT
     init_gpt()
 
     # Initialize pipeline for document search
-    return init_pipe(rfp_retriever), init_pipe(sp_retriever)
+    return init_pipes(rfp_retriever,sp_retriever)
 
 # Initialize FAISS datastore
 def init_stores():
-    try:
-        rfp_store = FAISSDocumentStore.load(index_path="my_faiss_index.faiss")
-        rfp_loaded = True
-    except:
-        rfp_store = FAISSDocumentStore(
-            similarity="cosine",
-            embedding_dim=768,
-            duplicate_documents='overwrite'
-        )
-        rfp_loaded = False
-    try:
-        sp_store = FAISSDocumentStore.load(index_path="sp_faiss_index.faiss")
-        sp_loaded = True
-    except:
-        sp_store = FAISSDocumentStore(
-            similarity="cosine",
-            embedding_dim=768,
-            duplicate_documents='overwrite'
-        )
-        sp_loaded = False
-    return rfp_store, sp_store, rfp_loaded, sp_loaded
+
+    rfp_store, rfp_loaded = rfp_load.init_store()
+
+    sp_store, sp_loaded = sp_load.init_store()
+
+    return rfp_store, rfp_loaded, sp_store, sp_loaded
 
 # Initialize retriever for documents in vector DB
 def init_retriever(document_store):
@@ -89,40 +77,24 @@ def init_gpt():
     openai.api_base = content["api_base"]
 
 # Initialize the pipeline
-def init_pipe(retriever):
-    return FAQPipeline(retriever=retriever)
+def init_pipes(rfp_retriever, sp_retriever):
+    return FAQPipeline(retriever=rfp_retriever), DocumentSearchPipeline(retriever=sp_retriever)
 
 # Add RFPIO data to VectorDB
 def write_rfp_docs(rfp_document_store, retriever):
-    # Get dataframe with columns "question", "answer" and some custom metadata
-    df = pd.read_csv("qna.csv")
-    df.fillna(value="", inplace=True)
+    print("Writing RFPIO Documents...")
+    
+    rfp_load.parseQNAandEmbedDocuments(rfp_document_store, retriever)
 
-    # Create embeddings for our questions from the FAQs
-    questions = list(df["question"].values)
-    print("questions:", len(questions))
-    df["embedding"] = retriever.embed_queries(queries=questions).tolist()
-    df = df.rename(columns={"question": "content"})
-
-    # Convert Dataframe to list of dicts and index them in our DocumentStore
-    docs_to_index = df.to_dict(orient="records")
-    print("rfp documents:", len(docs_to_index))
-    rfp_document_store.write_documents(docs_to_index)
-    rfp_document_store.update_embeddings(retriever)
-
-    rfp_document_store.save(index_path="my_faiss_index.faiss")
-    print("rfp docs added:", rfp_document_store.get_document_count())
-    print("rfp docs embedded:", rfp_document_store.get_embedding_count())
 
 # Add SharePoint data to VectorDB
 def write_sp_docs(sp_document_store, sp_retriever):
-
+    print("Writing SharePoint Documents...")
     directory = r"/Users/dhoule5/OneDrive - UHG/EIS Artifacts/"
 
     filenames = sp_load.getAllFileNames(directory)
 
     sp_load.parseFilesAndEmbedDocuments(directory, filenames, sp_document_store, sp_retriever)
-
 
 # Get responses
 def get_responses(pipe, questions, answers, cids, source_links, best_smes, confidences, i, lock, num_complete, progress_text, progress_bar):
