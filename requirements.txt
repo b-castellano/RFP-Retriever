@@ -21,3 +21,4 @@ bokeh==2.4.3
 # macfsevents, if hosted on mac os
 func_timeout
 fontawesome
+PyPDF4
