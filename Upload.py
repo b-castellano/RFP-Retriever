@@ -1,14 +1,10 @@
 ## NOTE: Bot responses can be changed by adding documents with valuable QA pairs to RFP. Consider this option if you are attempting to tweak responses
 
 # General
-from turtle import onclick
 import warnings
 import os
-import numpy as np
 import pandas as pd
-import openai
 import traceback
-import pyperclip as pc
 import threading
 from bokeh.models.widgets import Button
 from bokeh.models import CustomJS
@@ -18,13 +14,11 @@ from custom_html import custom_response
 # External Files
 import utils
 import ps
-from response import Response
 
 # Streamlit
 import streamlit as st
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit.runtime.scriptrunner import add_script_run_ctx
-from streamlit.components.v1 import html
 
 # Warning filter
 warnings.filterwarnings('ignore', "TypedStorage is deprecated", UserWarning)
@@ -84,19 +78,16 @@ def main():
     submitted = st.button("Submit")
 
     response_header_slot = st.empty()
-    response_slot = st.empty()
     container = st.container()
-    response_copy = st.empty()
 
     confidence_slot = st.empty()
     sources_header = st.empty()
     sources_slot = st.empty()
-    sources_slot_copy_button = st.empty()
     best_sme_slot = st.empty()
 
-    draft_email = st.empty()
-    email_header = st.empty()
-    email_content = st.empty()
+    # draft_email = st.empty()
+    # email_header = st.empty()
+    # email_content = st.empty()
 
     if query and isinstance(query, str) or submitted: ## If user submits a question
         try:
@@ -147,7 +138,6 @@ def main():
             elif len(questions) > 1: # Multiple questions case
                 print(f"\n\nQuestion length is: {len(questions)}\n\n")
                 st.session_state.submit = True
-                stop_button = st.empty()
 
                 # Initialize empty lists for answers, CIDs, source_links, SMEs, and confidences
                 answers, cids, source_links, best_smes, confidences = [], [], [], [], []
@@ -155,10 +145,7 @@ def main():
                 lock = threading.Lock()
                 threads = []
                 stop_event = threading.Event()
-
-                def stop_execution():
-                    # Set the stop event to signal early termination of threads
-                    stop_event.set()
+                stop = False
 
                 for i, question in enumerate(questions):
                     with lock:
@@ -173,9 +160,6 @@ def main():
                 num_complete = [0]
                 progress_text = f"Questions being answered. Please wait. ({num_complete[0]} / {len(questions)} complete)"
                 progress_bar = st.progress((num_complete[0] / len(questions)), text=progress_text)
-
-                # # Stop button
-                # stop_button_clicked = stop_button.button("Stop Execution Early")
 
                 # Thread creation
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -201,12 +185,11 @@ def main():
                         #     with lock:
                         #         print("Stopping early")
                         #         print(answers)
+                        #         stop_event.set()
                         #         progress_text = "Halted Execution. Current progress still downloadable"
                         #     break
 
-                        # Check if the stop event is set due to an early termination request
-                        if stop_event.is_set():
-                            break
+
                 # Create dataframe for display
                 df = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_smes, "Source Links": source_links})
                 st.session_state.data.append(df)
@@ -215,21 +198,21 @@ def main():
                 df_2 = pd.DataFrame({"Question": questions, "Answer": answers, "Confidence": confidences, "SMEs": best_smes, "Source Links": source_links})
                 sources_slot.write(df)
                 
-                # Copy button for only question, answer columns
-                copy_qa_button = Button(label="Copy Questions, Answers only")
-                df_copy = df.iloc[:, :2].to_csv(sep='\t')  # Select first two columns and convert to CSV
-                copy_qa_button.js_on_event("button_click", CustomJS(args=dict(df=df_copy), code=""" navigator.clipboard.writeText(df); """))
-                copy_qa_button.css_classes = ["streamlit-button"]
+                # # Copy button for only question, answer columns
+                # copy_qa_button = Button(label="Copy Questions, Answers only")
+                # df_copy = df.iloc[:, :2].to_csv(sep='\t')  # Select first two columns and convert to CSV
+                # copy_qa_button.js_on_event("button_click", CustomJS(args=dict(df=df_copy), code=""" navigator.clipboard.writeText(df); """))
+                # copy_qa_button.css_classes = ["streamlit-button"]
 
-                # Copy button for all of df
-                copy_all_button = Button(label="Copy All")
-                copy_all_button.js_on_event("button_click", CustomJS(args=dict(df=df.to_csv(sep='\t')), code="""
-                    navigator.clipboard.writeText(df);
-                    """))
-                copy_all_button.css_classes = ["streamlit-button"]
+                # # Copy button for all of df
+                # copy_all_button = Button(label="Copy All")
+                # copy_all_button.js_on_event("button_click", CustomJS(args=dict(df=df.to_csv(sep='\t')), code="""
+                #     navigator.clipboard.writeText(df);
+                #     """))
+                # copy_all_button.css_classes = ["streamlit-button"]
 
-                st.bokeh_chart(copy_qa_button)
-                st.bokeh_chart(copy_all_button)
+                # st.bokeh_chart(copy_qa_button)
+                # st.bokeh_chart(copy_all_button)
                 
                 # Create file and html table from dataframe and append to session state
                 file = df.to_csv()

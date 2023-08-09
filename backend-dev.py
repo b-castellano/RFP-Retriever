@@ -1,4 +1,7 @@
-from datasets import load_dataset
+### Helper functions, generally pertaining to queries themselves (back-end)
+
+
+import pandas as pd
 import traceback
 import re
 import json
@@ -6,7 +9,6 @@ import json
 import openai
 
 from haystack.nodes import EmbeddingRetriever
-from haystack import Document
 from haystack.document_stores import FAISSDocumentStore
 from haystack.pipelines import FAQPipeline
 from haystack.utils import print_answers
@@ -16,11 +18,7 @@ from haystack.nodes import FARMReader
 import sharepoint.sp_load as sp_load
 import rfpio.rfp_load as rfp_load
 
-import langchain
 from langchain.prompts import PromptTemplate
-from langchain.prompts.few_shot import FewShotPromptTemplate
-
-### Helper functions, generally pertaining to queries themselves (back-end)
 
 
 def init():

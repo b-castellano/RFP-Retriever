@@ -1,6 +1,5 @@
-# General
-from operator import index
-import sys
+### Heavy-duty functions for setup & processing of searches & queries
+
 import openai
 import pandas as pd
 import re
