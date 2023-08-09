@@ -1,5 +1,7 @@
+### Helper functions, generally pertaining to queries themselves (back-end)
+
+
 import pandas as pd
-from datasets import load_dataset
 import traceback
 import re
 import json
@@ -7,17 +9,11 @@ import json
 import openai
 
 from haystack.nodes import EmbeddingRetriever
-from haystack import Document
 from haystack.document_stores import FAISSDocumentStore
 from haystack.pipelines import FAQPipeline
-from haystack.utils import print_answers
 
 
-import langchain
 from langchain.prompts import PromptTemplate
-from langchain.prompts.few_shot import FewShotPromptTemplate
-
-### Helper functions, generally pertaining to queries themselves (back-end)
 
 
 def init():
