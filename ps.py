@@ -1,5 +1,6 @@
 # General
 from operator import index
+import sys
 import openai
 import pandas as pd
 import re
@@ -18,7 +19,8 @@ import sharepoint.sp_load as sp_load
 
 # External Files
 from response import Response
-import Upload
+
+### GPT & faiss calling back-end functions
 
 def init():
     # Initialize document store
@@ -97,14 +99,14 @@ def write_sp_docs(sp_document_store, sp_retriever):
     sp_load.parseFilesAndEmbedDocuments(directory, filenames, sp_document_store, sp_retriever)
 
 # Get responses
-def get_responses(pipe, questions, answers, cids, source_links, best_smes, confidences, i, lock, num_complete, progress_text, progress_bar):
+def get_responses(rfp_pipe,sp_pipe, questions, answers, cids, source_links, best_smes, confidences, i, lock, num_complete, progress_text, progress_bar):
 
     print(f"Running question {i + 1}")
     question = questions[i]
     response = Response()
 
     # Get relevant response for question
-    response = get_response(pipe, question, lock=lock)
+    response = get_response(rfp_pipe, sp_pipe, question, lock=lock)
 
     # Remove empty strings in lists
     source_links_i = response.source_links
@@ -137,28 +139,29 @@ def get_responses(pipe, questions, answers, cids, source_links, best_smes, confi
     progress_bar.progress((num_complete[0] / len(questions)), progress_text)
 
 # Get response for query
-def get_response(pipe, query, lock=threading.Lock(), history=["N/A"], retries=0):
+def get_response(rfp_pipe, sp_pipe, query, lock=threading.Lock(), history=["N/A"], retries=0):
     lock.acquire()
 
-    prediction, closeMatch = query_faiss(query, pipe)
+    rfp_prediction, sp_prediction, closeMatch = query_faiss(query, rfp_pipe,sp_pipe)
+
     response = Response()
 
-    # If a close match was found, just return that answer
+    # If a close match was found to rfp doc, just return that answer
     if closeMatch:
-        answer = prediction.meta["answer"]
+        answer = rfp_prediction.meta["answer"]
         response.answer = simplify_answer(query, re.sub(r"[\[\]'\"]", "", answer))
-        response.conf = f"{round((prediction.score * 100),2)}%"
-        response.cids = [prediction.meta["cid"]]
-        response.source_links = [prediction.meta["url"]]
-        response.smes = [prediction.meta["sme"]]
-        response.best_sme = prediction.meta["sme"]
+        response.conf = f"{round((rfp_prediction.score * 100),2)}%"
+        response.cids = [rfp_prediction.meta["cid"]]
+        response.source_links = [rfp_prediction.meta["url"]]
+        response.smes = [rfp_prediction.meta["sme"]]
+        response.best_sme = rfp_prediction.meta["sme"]
         lock.release()
         
         return response
 
     # No close match, so generate prompt from related docs
     else:
-        messages, docs = create_prompt(query, prediction, history)
+        messages, docs = create_prompt(query, rfp_prediction, sp_prediction, history)
         lock.release()
 
         try:
@@ -177,9 +180,9 @@ def get_response(pipe, query, lock=threading.Lock(), history=["N/A"], retries=0)
                 return response
 
             print("Restarting GPT call")
-            return get_response(pipe, query, lock=lock, retries=(retries + 1))
+            return get_response(rfp_pipe, sp_pipe, query, lock=lock, retries=(retries + 1))
 
-        response = get_info(prediction, docs, ids)
+        response = get_info(rfp_prediction, sp_prediction, docs, ids)
         response.answer = simplify_answer(query, answer)
         
         # If confidence is under 75%, output it cannot answer question --> Disabled for debug purposes
@@ -188,21 +191,21 @@ def get_response(pipe, query, lock=threading.Lock(), history=["N/A"], retries=0)
 
         return response
 
-
 # Get top k documents related to query from vector datastore
-def query_faiss(query, pipe):
-    docs = pipe.run(query=query, params={"Retriever": {"top_k": 5}})
+def query_faiss(query, rfp_pipe, sp_pipe):
+    rfp_docs = rfp_pipe.run(query=query, params={"Retriever": {"top_k": 5}})
+    sp_docs = sp_pipe.run(query=query, params={"Retriever": {"top_k": 5}})
 
-    # If there is a close match (>=95% confidence) between user question and pulled doc, then just return that doc's answer
-    if docs["documents"][0].score >= .95:
-        return docs["documents"][0], True
-    
-    # No close match
+    # If there is a close match (>=95% confidence) between user question and pulled rfp doc, return that doc's answer
+    if rfp_docs["documents"][0].score >= .95:
+        return rfp_docs["documents"][0],None, True
+
+    # No close match, use all rfp and sharepoint docs
     else:
-        return docs, False
+        return rfp_docs, sp_docs, False
         
 # Create prompt template
-def create_prompt(query, prediction, history):
+def create_prompt(query, rfp_prediction, sp_prediction, history):
     print("Creating prompt")
     prompt = PromptTemplate(input_variables=["prefix", "question", "context"],
                             template="{prefix}\nQuestion: {question}\n Context: ###{context}###\n")
@@ -215,22 +218,30 @@ def create_prompt(query, prediction, history):
     
     prefix = """Assistant is a large language model designed by the Security Sages to answer questions for an Information Security enterprise professionally. 
     Provided is some context consisting of a sequence of answers in the form of 'question ID, answer' and the question to be answered. 
-    Use the answers within the context to answer the question in a concise manner. If possible, respond with only yes or no. At the end of your response, list the question IDs of the answers you referenced."""
+    Use the answers within the context to answer the question in a concise manner. At the end of your response, list the question IDs of the answers you referenced.
+    If you can't answer the question just say 'I'm sorry I cannot answer that question.'"""
 
     context = ""
     docs = {} # Used to get scores of prompts later on
-    for answer in prediction["answers"]:
+    for answer in rfp_prediction["answers"]:
         newAnswer = re.sub(r"[\[\]'\"]","",answer.meta["answer"])
 
-        # Remove docs 
+        # Add doc to context
         context += "Question ID: {ID}, Answer: {answer}\n".format(
             ID=answer.meta["cid"], answer=newAnswer)
         
         # Add ID-Score pair to dict
         docs[answer.meta["cid"]] = answer
+
+
+    for doc in sp_prediction["documents"]:
+        answer = doc.content
+        context += "Question ID: {ID}, Answer: {answer}\n".format(
+            ID=doc.meta["filename"], answer=answer)
+
         
     system_prompt = prompt.format(prefix=prefix, question=query, context=context)
-
+    print(system_prompt)
     # Few-shot training examples
     messages=[
         {"role": "system", "content": system_prompt},
@@ -267,6 +278,12 @@ def create_prompt(query, prediction, history):
         """
         For externally hosted applications, MS Azure is a preferred Cloud Service Provider for Optum Behavioral Health. (CID55595)
         """
+        },
+        {"role": "user", "content": "What does Optum think of Apple?"},
+        {"role": "assistant", "content": 
+        """
+        Sorry I cannot answer that question. (CID29004)
+        """
         }
     ]
 
@@ -296,18 +313,20 @@ def call_gpt(messages, foo):
         presence_penalty=0.0
     )
     output = response['choices'][0]['message']['content']
-
+    print(output)
+    
     # Extract cids from gpt output
     ids = re.findall(r"CID\d+", output)
 
-    # Clean up cids
+    # Extract sources and remove duplicates
     ids = list(set(ids))
     output = re.sub(r"\(?(CID\d+),?\)?|<\|im_end\|>|\[(.*?)\]", "", output)
+    
 
     return output, ids
 
 # Gets additional data for output
-def get_info(prediction, docs, ids):
+def get_info(rfp_prediction, sp_prediction, docs, ids):
     response = Response()
     cids, smes, source_links = [], [], []
     docs_used = {}
@@ -316,14 +335,14 @@ def get_info(prediction, docs, ids):
         ids = []
 
         # Use all ids to get information
-        for answer in prediction["answers"]:
+        for answer in rfp_prediction["answers"]:
             ids.append(answer.meta["cid"])
         
     ids = list(set(ids)) ## Remove duplicates in found ids
     best_score = 0
     best_sme = "Not Found"
 
-    for id in ids:  ## If gpt found ids
+    for id in ids:  
         
         try: ## Check if a CID given by gpt is invalid (not real)
             docs[id]
@@ -337,11 +356,8 @@ def get_info(prediction, docs, ids):
         docs_used[docs[id].meta["cid"]] = docs[id]
 
         # Find sme with highest confidence document
-        best_sme = "Not Found"
-        
         if docs_used[id].score > best_score and docs_used[id].meta["sme"] != "":
             best_sme = docs_used[id].meta["sme"]
-
 
     # Get average confidence score for used documents
     if len(docs_used) == 0:
@@ -361,6 +377,7 @@ def get_info(prediction, docs, ids):
 
 # Searches answer for yes or no response and outputs that for simplified answer
 def simplify_answer(query, answer):
+    
     # Clean up questions and answer
     query = query.strip()
     answer = answer.strip()

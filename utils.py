@@ -1,10 +1,9 @@
 import pandas as pd
 import datetime
-#from openpyxl import load_workbook
 from io import BytesIO
-#import openpyxl
-#import pytz
 import re
+
+### General utility functions (generally standalone)
 
 # Compute average of pulled CID confidence scores
 def compute_average_score(docs):
@@ -71,18 +70,30 @@ def read_questions(file):
 
 # Format excel sheet considering original rows
 def to_excel(df, rows):
-    output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    output = BytesIO() ## Buffer for data collection
+    writer = pd.ExcelWriter(output, engine='xlsxwriter') ## Using xlsxwriter for excel writer
+
+    # Initialize a workbook with sheet and format headers
     workbook = writer.book
     worksheet = workbook.add_worksheet("Sheet1")
     worksheet = writer.sheets['Sheet1']
-    format1 = workbook.add_format({'num_format': '0.00'}) 
-    worksheet.set_column('A:A', None, format1)
+    format = workbook.add_format({'bold': True})
+
+    # Write headers
+    title = ["Question", "Answer", "Confidence", "SME", "CIDs"]
+    k = 0
+    for i in title:
+        worksheet.write(0, k, i, format)
+        k += 1
+    
+    # Fill rows with requried info
     n = 0
     for row in rows:
         for column in range(df.shape[1]):
-            worksheet.write(row.name, column, str(df.iloc[n,column]))
+            worksheet.write(row.name + 1, column, str(df.iloc[n,column]))
         n += 1
+    
+    # Save and ouput values
     writer.close()
     processed_data = output.getvalue()
     return processed_data
@@ -104,12 +115,15 @@ def getMostRecentDate(x, y):
 def to_html(df, cids):
     n = 0
     for cid in cids:
-        links = df["Source Links"].iloc[n]
+        links = df["Source Links"].iloc[n] ## Get relevant links
         k = 0
         for link in links:
-            links[k] = f'<a target="_blank" href="{link}">{cid[k]}</a>'
+            # Extract links using regex (Mainly due to an issue with merging hyper and html dataframes)
+            link = re.search(r'".*",', link)
+            link = re.search(r'[^"].*[^",]', link.group(0))
+            links[k] = f'<a target="_blank" href="{link.group(0)}">{cid[k]}</a>' ## Convert to html hyper links
             k += 1
-        df["Source Links"].iloc[n] = links
+        df["Source Links"].iloc[n] = links ## Reinsert links
         n += 1
     return df
 
@@ -153,8 +167,8 @@ def get_SMEs(df):
     unanswered = {}
     for i, row in df.iterrows():
 
-        # If answer contains key word
-        if re.search (r"context", df["Answer"][i]) is not None:
+        # If answer contains key word or key phrase
+        if re.search(r"(not|no)?.*?(not|no|contain|clear|provided|provide|cannot|not specific) (enough |sufficient )?(information|context|answer|enough|find)", df["Answer"][i]) or re.search(r"answer.*?(not clear|unclear)", df["Answer"][i]) or re.search(r"GPT call failed", df["Answer"][i]) is not None:
             
             # Add relavant SME to dictionary with questions
             if unanswered.get(df["SMEs"][i]) != None:
