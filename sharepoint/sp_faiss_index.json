@@ -1,0 +1,1 @@
+{"sql_url": "sqlite:///sharepoint/sp_document_store.db", "similarity": "cosine", "embedding_dim": 768, "duplicate_documents": "overwrite"}

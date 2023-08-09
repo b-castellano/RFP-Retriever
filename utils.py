@@ -1,9 +1,9 @@
 import pandas as pd
 import datetime
-from openpyxl import load_workbook
 from io import BytesIO
-import openpyxl
-import pytz
+import re
+
+### General utility functions (generally standalone)
 
 # Compute average of pulled CID confidence scores
 def compute_average_score(docs):
@@ -26,13 +26,13 @@ def parse_sme_name(sme):
     l = len(name_list)
 
     # Reorder
-    if l > 2:  # Handle multiple names case
+    if l > 2:  ## Handle multiple names case
         firstnames = [name_list[i] for i in range(1, len(name_list)-1)]
         firstname = ' '.join(firstnames)
         middlename = name_list[-1].replace('(', '\"').replace(')', '\"').strip()
         lastname = name_list[0]
         fullname = firstname + ' ' + middlename + ' ' + lastname
-    elif l == 2:  # Handle Firstname Lastname case
+    elif l == 2:  ## Handle Firstname Lastname case
         firstname = name_list[1].replace('(', '\"').replace(')', '\"').strip()
         lastname = name_list[0]
         fullname = firstname + ' ' + lastname
@@ -41,36 +41,6 @@ def parse_sme_name(sme):
     else:
         fullname = name_list[1] + ' ' + name_list[0]
     return fullname
-
-# Remove duplicate itmes in lists --> Disabled
-def remove_duplicates(original, arr1, arr2=[], arr3=[]):
-    index_dict = {}
-    if type(arr1) == str:
-        arr1 = [arr1]
-        arr2 = [arr2]
-        arr3 = [arr3]
-
-    # Find indexes of duplicates in original array
-    for i, x in enumerate(original):
-        if x not in index_dict:
-            index_dict[x] = [i]
-        else:
-            index_dict[x].append(i)
-
-    # Remove corresponding items from other arrays
-    for indexes in index_dict.values():
-        if len(indexes) > 1:
-            for i in indexes[1:]:
-                if i < len(arr1):
-                    del arr1[i]
-                if i < len(arr2):
-                    del arr2[i]
-                if i < len(arr3):
-                    del arr3[i]
-    unique = list(set(original))
-    original = [x for x in unique]
-
-    return original, arr1, arr2, arr3
 
 # Read questions from file and gather row data
 def read_questions(file):
@@ -90,47 +60,47 @@ def read_questions(file):
         question = ""
         for cell in row:
             if pd.notna(cell):
-                question += (str(cell).strip() + " ")
-        if question != "":
-            questions.append(question)
-            rows.append(row)
+                question += (str(cell).strip() + " ") ## Concatenate cells in a row
+        if question != "": ## If cell not empty
+            questions.append(question) ## Add questions in row
+            rows.append(row) ## Add row data
     if questions==[]: ## If not question
         return [], 1, []
     return questions, 0, rows
 
-# Format excel sheet considering original rows questions where in
+# Format excel sheet considering original rows
 def to_excel(df, rows):
-    output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    output = BytesIO() ## Buffer for data collection
+    writer = pd.ExcelWriter(output, engine='xlsxwriter') ## Using xlsxwriter for excel writer
+
+    # Initialize a workbook with sheet and format headers
     workbook = writer.book
     worksheet = workbook.add_worksheet("Sheet1")
     worksheet = writer.sheets['Sheet1']
-    format1 = workbook.add_format({'num_format': '0.00'}) 
-    worksheet.set_column('A:A', None, format1)
+    format = workbook.add_format({'bold': True})
+
+    # Write headers
+    title = ["Question", "Answer", "Confidence", "SME", "CIDs"]
+    k = 0
+    for i in title:
+        worksheet.write(0, k, i, format)
+        k += 1
+    
+    # Fill rows with requried info
     n = 0
     for row in rows:
-        for column in range(5):
-            worksheet.write(row.name, column, str(df.iloc[n,column]))
+        for column in range(df.shape[1]):
+            worksheet.write(row.name + 1, column, str(df.iloc[n,column]))
         n += 1
-    writer.close()
-    processed_data = output.getvalue()
-    return processed_data
-
-# Formats excel sheet to not consider original rows --> NOT IN USE
-def to_excel_no_format(df):
-    output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    df.to_excel(writer, index=None, sheet_name='Sheet1')
-    workbook = writer.book
-    worksheet = writer.sheets['Sheet1']
-    format1 = workbook.add_format({'num_format': '0.00'}) 
-    worksheet.set_column('A:A', None, format1)
+    
+    # Save and ouput values
     writer.close()
     processed_data = output.getvalue()
     return processed_data
 
 # Compare dates
 def getMostRecentDate(x, y):
+
     # Convert strings to datetime objects
     date_x = datetime.strptime(x, "%Y-%m-%d %H:%M:%S %z")
     date_y = datetime.strptime(y, "%Y-%m-%d %H:%M:%S %z")
@@ -140,25 +110,73 @@ def getMostRecentDate(x, y):
         return date_x
     else:
         return date_y
-    
-# Clean confidences scores for display
-def clean_confidences(confidences): # Fix this? --> Need to convert confidences to strings somewhere
-    #for i in range(len(confidences)):
-    #    x = confidences[i].find("** ")
-    #    confidences[i] = confidences[i][x+3:]
-    return confidences
-                    
-#def read_questions_v2(file):
-#    wb = openpyxl.load_workbook(file)
-#    ws = wb.worksheets[0]
-#
-#    data = [[cell.value for cell in row] for row in ws[range_str]]
-#
-#    validations = ws.data_validations.dataValidation
 
+# Convert dataframe to html table with hyperlinks
+def to_html(df, cids):
+    n = 0
+    for cid in cids:
+        links = df["Source Links"].iloc[n] ## Get relevant links
+        k = 0
+        for link in links:
+            # Extract links using regex (Mainly due to an issue with merging hyper and html dataframes)
+            link = re.search(r'".*",', link)
+            link = re.search(r'[^"].*[^",]', link.group(0))
+            links[k] = f'<a target="_blank" href="{link.group(0)}">{cid[k]}</a>' ## Convert to html hyper links
+            k += 1
+        df["Source Links"].iloc[n] = links ## Reinsert links
+        n += 1
+    return df
 
+# Convert links to hyperlinks for excel sheet
+def to_hyperlink(df, cids):
+    cols = {}
+    n = 0
+    for cid in cids:
+        links = df["Source Links"].iloc[n] ## Get relavent links for row
+        k = 0
+        for link in links:
+            # Convert links into hyperlinks for excel format
+            links[k] = f'=HYPERLINK("{link}", "{cid[k]}")'
 
-# def get_email_text(query, best_sme, email_header, email_content):
+            # Create a dictionary to track which links go into which columns
+            if cols.get(k) != None:
+                cols[k].append(links[k])
+            else:
+                cols[k] = [links[k]]
+            k += 1
+
+        # If column list is not long enough to fit append with '-'
+        while k <= 4:
+            if cols.get(k) != None:
+                cols[k].append('-')
+            else:
+                cols[k] = ['-']
+            k += 1
+        n += 1
+
+    # Insert column lists from dictionary into columns for excel
+    for col in range(len(cols.keys())):
+        df.insert(4 + col, f'Link {col}', cols[col], False)
+
+    # Drop the source links column
+    df.drop(df.columns[9], axis=1, inplace=True)
+    return df
+
+# Get relevant SMEs for unanswered questions
+def get_SMEs(df):
+    unanswered = {}
+    for i, row in df.iterrows():
+
+        # If answer contains key word or key phrase
+        if re.search(r"(not|no)?.*?(not|no|contain|clear|provided|provide|cannot|not specific) (enough |sufficient )?(information|context|answer|enough|find)", df["Answer"][i]) or re.search(r"answer.*?(not clear|unclear)", df["Answer"][i]) or re.search(r"GPT call failed", df["Answer"][i]) is not None:
+            
+            # Add relavant SME to dictionary with questions
+            if unanswered.get(df["SMEs"][i]) != None:
+                unanswered[df["SMEs"][i]].append(f'Question {i}: {df["Question"][i]}')
+            else:
+                unanswered[df["SMEs"][i]] = [f'Question {i}: {df["Question"][i]}']
+    return unanswered
+
 def get_email_text(query, best_sme):
 
     print("Drafting email...")
