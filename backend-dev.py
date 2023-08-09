@@ -10,7 +10,7 @@ from haystack import Document
 from haystack.document_stores import FAISSDocumentStore
 from haystack.pipelines import FAQPipeline
 from haystack.utils import print_answers
-from haystack.pipelines import ExtractiveQAPipeline
+from haystack.pipelines import DocumentSearchPipeline
 from haystack.nodes import FARMReader
 
 import sharepoint.sp_load as sp_load
@@ -78,10 +78,8 @@ def init_gpt():
 
 # Initialize the pipeline
 def init_pipes(rfp_retriever, sp_retriever):
-    model_name_or_path = "deepset/roberta-base-squad2"
-    sp_reader = FARMReader(model_name_or_path, use_gpu=True)
-
-    return FAQPipeline(retriever=rfp_retriever), ExtractiveQAPipeline(reader=sp_reader, retriever=sp_retriever)
+    
+    return FAQPipeline(retriever=rfp_retriever), DocumentSearchPipeline(retriever=sp_retriever)
 
 # Add RFPIO data to VectorDB
 def write_rfp_docs(rfp_document_store, retriever):
@@ -134,16 +132,14 @@ def get_response(rfp_pipe, sp_pipe, query):
 # Get top k documents related to query from vector datastore
 def query_faiss(query, rfp_pipe, sp_pipe):
     rfp_docs = rfp_pipe.run(query=query, params={"Retriever": {"top_k": 5}})
-    sp_docs = sp_pipe.run(query=query, params={"Retriever": {"top_k": 10}, "Reader": {"top_k": 5}})
-    for doc in sp_docs["answers"]:
-        print(f"=====================\n{doc.answer}, {doc.score}, {doc.meta['filename']}\n==================")
+    sp_docs = sp_pipe.run(query=query, params={"Retriever": {"top_k": 5}})
+
+    for doc in sp_docs["documents"]:
+        print(f"=====================\n{doc.content}, {doc.score}, {doc.meta['filename']}\n==================")
         
     # If there is a close match (>=95% confidence) between user question and pulled doc, then just return that doc's answer
     if rfp_docs["documents"][0].score >= .95:
         return rfp_docs["documents"][0],None, True
-    
-    elif sp_docs["answers"][0].score >= .95:
-        return None, sp_docs["answers"][0], True
 
     # No close match, use all rfp and sharepoint docs
     else:
@@ -184,14 +180,14 @@ def create_prompt(query, rfp_prediction, sp_prediction):
             alts.append(answer.meta["cid"])
             count+=1
 
-    for answer in sp_prediction["answers"]:
+    # for answer in sp_prediction["documents"]:
 
-        filename = answer.meta["filename"]
-        page = answer.meta["page"]
-        file_info = f"{filename}, Page {page}"
+    #     filename = answer.meta["filename"]
+    #     page = answer.meta["page"]
+    #     file_info = f"{filename}, Page {page}"
 
-        context += "Question ID: {info}, Answer: {answer}\n".format(
-            info=file_info, answer=answer.answer)
+    #     context += "Question ID: {info}, Answer: {answer}\n".format(
+    #         info=file_info, answer=answer.answer)
 
     system_prompt = prompt.format(prefix=prefix, question=query, context=context)
 
